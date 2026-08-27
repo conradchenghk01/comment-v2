@@ -106,6 +106,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Testing Decisions
 
+- **單一測試 seam：HTTP API 層**（前端 API＋控制台 API）。所有行為從 API 的輸入／輸出觀察；雲盾以合約測試樁代替，不依賴真實服務；UI（網頁／App／控制台）薄，不另建測試 seam。
 - **好的測試只測外部行為**：透過公開介面（前端 API、控制台 API）驅動，不斷言內部結構。狀態機（留言的 pending → published / rejected、用戶的 normal → normal-blocked / fully-blocked）以輸入與可觀察輸出驗證。
 - **測試模組**：評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
 - **Prior art**：repo 目前是純文件（無程式碼），測試從零開始；機審邊界（雲盾回應）以合約測試樁代替，不依賴真實服務。
@@ -127,6 +128,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Further Notes
 
+- **Issue tracker**：spec 待發佈到 Jira（GitHub 在後）。發佈時套用 `ready-for-agent` label。
 - 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言）。
 - 雲盾整合細節（同步／非同步判定、自訂詞同步方式、API 形態）待補，屆時更新 ADR-0001。
 - 詳細 user story 清單（中文版）見 `docs/user-stories.md`。
