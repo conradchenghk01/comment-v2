@@ -51,6 +51,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 22. As a logged-in user, I want to mute another user (all their comments, past and future, hidden from me; reversible; the muted user never knows), so that I can filter out content I do not want to see.
 23. As a logged-in user, I want to unmute a user, so that I can restore their comments.
+23a. As a logged-in user, I want to report a comment (it becomes permanently hidden from me; unlimited reports), so that I can hide a single comment I find problematic without muting the entire user.
+23b. As an operator, I want to see report records (who was reported how many times, who reported them, which comment was reported), so that I can spot problematic users or content via crowd signals.
 
 ### 控制台：登入與權限
 
@@ -94,6 +96,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
 - **emoji**：固定 3 個（笑／哭／加油）；每 emoji 每人每則一次、可取消；三連＝三個全給的快捷、每則一次；只顯示數字、不顯示誰按；可按自己的。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
+- **檢舉**：用戶對單則留言檢舉，檢舉後該則對檢舉者永遠隱藏、數量不限；控制台可見檢舉紀錄（被檢舉者、檢舉者、被檢舉留言）。
 - **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的留言（ADR-0002）；無檢舉機制（找客服）。
 - **機審**：網易雲盾 SaaS 判定，命中即待審；先審後發；自訂詞同步到雲盾自訂詞庫（ADR-0001，整合細節待補）。
 - **人審**：操作員批准／拒絕；被拒留言對作者顯示「未通過審核」；無超時自動批准／拒絕。
@@ -125,7 +128,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 - 置頂留言、官方／認證標籤、單篇文章關閉留言
 - 通知（回覆通知、審核結果通知）
-- 檢舉機制
+- 檢舉機制（用戶可檢舉單則留言，控制台可見檢舉紀錄）
 - 用戶自刪／自編輯留言
 - 熱門排序
 - 嵌入式 widget／SDK
