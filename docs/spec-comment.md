@@ -18,7 +18,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ### 前端：閱讀
 
-1. As a logged-in user, I want to see the main comments of an article (newest first, infinite scroll), so that I can catch the latest discussion.
+1. As a logged-in user, I want to see the main comments of an article (newest first by default, infinite scroll), so that I can catch the latest discussion.
+1a. As a logged-in user, I want to switch the main comment list sorting between most relevant (highest 熱度), newest first, and oldest first, so that I can browse comments the way I prefer.
 2. As a logged-in user, I want to see the reply count of each main comment's branch, so that I can decide whether to expand it.
 3. As a logged-in user, I want to expand a branch and read its replies (oldest first, infinite scroll within the branch when long), so that I can follow the full conversation.
 4. As a logged-in user, I want to see each commenter's nickname and avatar, so that I can identify who is speaking.
@@ -92,7 +93,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Implementation Decisions
 
-- **結構**：兩層＋分支內扁平（無 @ 對象）；主評論最新在前、分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
+- **結構**：兩層＋分支內扁平（無 @ 對象）；主評論支援三種排序（newest 降序 / oldest 升序 / relevant 熱度降序），預設 newest；分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
+- **熱度**：emoji 總數（笑＋哭＋加油）＋分支內回覆數；relevant 排序以此降序。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
 - **emoji**：固定 3 個（笑／哭／加油）；每 emoji 每人每則一次、可取消；三連＝三個全給的快捷、每則一次；只顯示數字、不顯示誰按；可按自己的。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
