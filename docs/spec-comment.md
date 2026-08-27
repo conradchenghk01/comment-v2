@@ -27,6 +27,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 7. As a logged-in user, I want to see my own rejected comments marked "未通過審核", so that I know my comment did not pass review.
 8. As a logged-in user, I want deleted main comments to appear as a "已刪除" placeholder (replies preserved), so that the conversation still makes sense.
 9. As a visitor, I cannot see the comment section at all when not logged in, so that every interaction has an accountable identity (product decision).
+9a. As a logged-in user, I want to batch-fetch the top few comments and total count for multiple articles in one request (capped at N articles x M comments each), so that the listing page can preview comment activity across articles without overloading the system.
 
 ### 前端：留言
 
@@ -103,6 +104,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **控制台**：響應式網頁；審核以行動體驗為第一優先；搜尋結果可直接刪；用戶搜尋以會員 ID 為主、暱稱為輔（會員系統提供查詢介面）；審計紀錄記操作人＋時間、UI 只做列表。
 - **整合**：前端會員系統與控制台內部授權是兩套獨立系統；操作員帳號沿用內部授權系統；前端 API 優先、不出 widget／SDK。
 - **即時性**：自己的留言樂觀更新立即出現；他人的新留言需重新整理（v1 無推送）。
+- **效能**：高流量媒體場景；Redis 快取熱門文章列表第一頁與 emoji 計數（TTL 30s，寫入失效）；列表查詢走 PG 讀副本；批次取文章評論上限 N=20 篇 x M=3 則（ADR-0007）。
 - **靜音資料形態**：評論系統自己的表（user_id → muted_user_id），不外溢到會員系統。
 - **排序 tiebreaker**：created_at 存到毫秒（TIMESTAMPTZ），不另加 sequence 欄位。
 - **emoji 取消**：toggle 語義（按→+1、再按→歸零、再按→+1），最終態只看當前是否 active。
@@ -137,6 +139,6 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 ## Further Notes
 
 - **Issue tracker**：spec 待發佈到 Jira（GitHub 在後）。發佈時套用 `ready-for-agent` label。
-- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權）。
+- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略）。
 - 雲盾整合細節（同步／非同步判定、自訂詞同步方式、API 形態）待補，屆時更新 ADR-0001。
 - 詳細 user story 清單（中文版）見 `docs/user-stories.md`。
