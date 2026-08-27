@@ -26,7 +26,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 5. As a logged-in user, I want to see the total count of each emoji on a comment, so that I can gauge how much it resonates.
 6. As a logged-in user, I want to see my own pending-review comments marked "審核中" (visible only to me), so that I know my comment was submitted and is awaiting review.
 7. As a logged-in user, I want to see my own rejected comments marked "未通過審核", so that I know my comment did not pass review.
-8. As a logged-in user, I want deleted main comments to appear as a "已刪除" placeholder (replies preserved), so that the conversation still makes sense.
+8. As a logged-in user, I want deleted main comments to appear as a "此留言已被 01 管理員刪除" placeholder (replies preserved), so that the conversation still makes sense.
 9. As a visitor, I cannot see the comment section at all when not logged in, so that every interaction has an accountable identity (product decision).
 9a. As a logged-in user, I want to batch-fetch the top few comments and total count for multiple articles in one request (capped at N articles x M comments each), so that the listing page can preview comment activity across articles without overloading the system.
 
@@ -67,6 +67,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 28. As an operator, I want to search comments by article key, so that I can handle a specific article's comments.
 29. As an operator, I want to filter comments by status (pending / published / deleted), so that I can process each status separately.
 30. As an operator, I want to delete a comment directly from search results, so that I can act on violations quickly.
+30a. As an operator, I want to bulk-delete all comments under a specific article key, so that I can quickly clean up a problematic article's comment section.
+30b. As an operator, I want to bulk-delete all comments by a specific user, so that I can remove a spammer's entire footprint in one action.
 31. As an operator, I want to search users (member ID primary, nickname secondary), so that I can manage from the user side.
 32. As an operator, I want to see a user's comment stats (total, status breakdown, last-30-days daily volume, last comment time, account status), so that I can decide whether to block them.
 
@@ -83,6 +85,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 38. As an operator, I want to manually unblock a user, so that I can correct mistakes.
 39. As an operator, I want to set the global comment interval, so that I can control posting frequency.
 40. As an operator, I want to set the global daily comment limit, so that I can control total volume.
+40a. As an operator, I want to set the new-user cooldown period (how long after registration a user cannot comment), so that I can prevent spammers from creating accounts and immediately flooding the system.
 41. As an operator, I want to see a user's block status (normal / normal-blocked / fully-blocked), so that I can keep track of account states.
 
 ### 控制台：行動場景
@@ -102,9 +105,9 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的留言（ADR-0002）；無檢舉機制（找客服）。
 - **機審**：網易雲盾 SaaS 判定，命中即待審；先審後發；自訂詞同步到雲盾自訂詞庫（ADR-0001，整合細節待補）。
 - **人審**：操作員批准／拒絕；被拒留言對作者顯示「未通過審核」；無超時自動批准／拒絕。
-- **刪除**：僅操作員可刪；刪主評論留「已刪除」佔位、回覆保留；分支回覆被刪單則移除；無復原按鈕（審計留痕）。
+- **刪除**：僅操作員可刪；刪主評論留「此留言已被 01 管理員刪除」佔位、回覆保留；分支回覆被刪單則移除；無復原按鈕（審計留痕）。支援批次刪除：按文章 key（刪該文章所有留言）、按用戶（刪該用戶所有留言）。
 - **封鎖**：無期限、可手動解封；一般／完全兩種模式都不隱藏既有留言（ADR-0004）；被拒時回明確訊息。
-- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；全域單一值。
+- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；全域單一值。新用戶冷卻期：註冊後 N 時間內不能留言，N 由控制台設定。
 - **內容**：純文字、上限 1000 字、允許換行、URL 當普通文字。
 - **控制台**：響應式網頁；審核以行動體驗為第一優先；搜尋結果可直接刪；用戶搜尋以會員 ID 為主、暱稱為輔（會員系統提供查詢介面）；審計紀錄記操作人＋時間、UI 只做列表。
 - **整合**：前端會員系統與控制台內部授權是兩套獨立系統；操作員帳號沿用內部授權系統；前端 API 優先、不出 widget／SDK。
