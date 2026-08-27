@@ -31,7 +31,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 ### 前端：留言
 
 10. As a logged-in user, I want to post a main comment (plain text, max 1000 chars, line breaks allowed), so that I can join the discussion.
-11. As a logged-in user, I want to reply within a branch (optionally @-mentioning a target, no new level), so that I can converse without deep nesting.
+11. As a logged-in user, I want to reply within a branch (no @-mention, no new level, chronological order), so that I can converse without deep nesting.
 12. As a logged-in user, I want a clear error with remaining wait time when my comment interval has not elapsed, so that I know when I can post again.
 13. As a logged-in user, I want a clear error with today's remaining quota when my daily limit is exhausted, so that I know I am out of quota.
 14. As a logged-in user, I want my comment to enter pending review (visible only to me) when it hits a sensitive word, so that I know it needs human review.
@@ -89,7 +89,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Implementation Decisions
 
-- **結構**：兩層＋分支內扁平（@ 對象）；主評論最新在前、分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
+- **結構**：兩層＋分支內扁平（無 @ 對象）；主評論最新在前、分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
 - **emoji**：固定 3 個（笑／哭／加油）；每 emoji 每人每則一次、可取消；三連＝三個全給的快捷、每則一次；只顯示數字、不顯示誰按；可按自己的。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
