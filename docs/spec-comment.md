@@ -38,6 +38,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 13. As a logged-in user, I want a clear error with today's remaining quota when my daily limit is exhausted, so that I know I am out of quota.
 14. As a logged-in user, I want my comment to enter pending review (visible only to me) when it hits a sensitive word, so that I know it needs human review.
 15. As a blocked user, I want a clear "你的帳號已被限制留言" error when I try to comment, so that I know my account is restricted.
+15a. As an auto-banned user, I want a clear error indicating I am temporarily restricted due to reports, so that I know why I cannot comment.
 16. As a fully-blocked user, I cannot see the comment section at all, so that full block is total isolation (product decision).
 
 ### 前端：emoji 與三連
@@ -54,6 +55,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 23. As a logged-in user, I want to unmute a user, so that I can restore their comments.
 23a. As a logged-in user, I want to report a comment (it becomes permanently hidden from me; unlimited reports), so that I can hide a single comment I find problematic without muting the entire user.
 23b. As an operator, I want to see report records (who was reported how many times, who reported them, which comment was reported), so that I can spot problematic users or content via crowd signals.
+23c. As an operator, I want to see auto-ban status and reasons (which tier triggered, report count, cumulative offense count), so that I can review and manually unban if a false positive occurred.
+23d. As an operator, I want to configure auto-ban tier thresholds (report count per tier) and durations, so that I can tune the system against spam patterns.
 
 ### 控制台：登入與權限
 
@@ -102,6 +105,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **emoji**：固定 3 個（笑／哭／加油）；每 emoji 每人每則一次、可取消；三連＝三個全給的快捷、每則一次；只顯示數字、不顯示誰按；可按自己的。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
 - **檢舉**：用戶對單則留言檢舉，檢舉後該則對檢舉者永遠隱藏、數量不限；控制台可見檢舉紀錄（被檢舉者、檢舉者、被檢舉留言）。
+- **自動封禁**：用戶被檢舉達 tier 門檻即自動封禁，採累計犯規升級模型（第 1 次 tier 1 封 1 天、第 2 次 tier 2 封 1 週、第 3 次 tier 3 封 1 個月、第 4 次永久封禁）；tier 1-3 為一般封鎖，永久封禁為完全封鎖；門檻由控制台設定（預設 5/10/20，24 小時滾動窗口計算）；操作員可見狀態與原因、可手動解封；審計紀錄記「系統自動封禁」。
 - **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的留言（ADR-0002）；無檢舉機制（找客服）。
 - **機審**：網易雲盾 SaaS 判定，命中即待審；先審後發；自訂詞同步到雲盾自訂詞庫（ADR-0001，整合細節待補）。
 - **人審**：操作員批准／拒絕；被拒留言對作者顯示「未通過審核」；無超時自動批准／拒絕。
@@ -147,6 +151,6 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 ## Further Notes
 
 - **Issue tracker**：spec 待發佈到 Jira（GitHub 在後）。發佈時套用 `ready-for-agent` label。
-- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略）。
+- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略、0008 檢舉驅動自動封禁）。
 - 雲盾整合細節（同步／非同步判定、自訂詞同步方式、API 形態）待補，屆時更新 ADR-0001。
 - 詳細 user story 清單（中文版）見 `docs/user-stories.md`。
