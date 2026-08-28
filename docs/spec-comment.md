@@ -39,7 +39,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 7. As a logged-in user, I want to see my own rejected comments marked "未通過審核", so that I know my comment did not pass review.
 8. As a logged-in user, I want deleted main comments to appear as a "此留言已被 01 管理員刪除" placeholder (replies preserved), so that the conversation still makes sense.
 9. As a visitor, I cannot see the comment section at all when not logged in, so that every interaction has an accountable identity (product decision).
-9a. As a logged-in user, I want to batch-fetch the top few comments and total count for multiple articles in one request (capped at N articles x M comments each), so that the listing page can preview comment activity across articles without overloading the system.
+9a. As a logged-in user, I want to batch-fetch the top few comments, total comment count, and total emoji count for multiple articles in one request (capped at N articles x M comments each), so that the listing page can preview comment activity across articles without overloading the system.
+9b. As a logged-in user, I want to see a hot-comment-list (articles ranked by 文章熱度), so that I can jump straight to the most active discussions without browsing each article.
 
 ### 前端：留言
 
@@ -130,6 +131,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **整合**：前端會員系統與控制台內部授權是兩套獨立系統；操作員帳號沿用內部授權系統；前端 API 優先、不出 widget／SDK。
 - **即時性**：自己的留言樂觀更新立即出現；他人的新留言需重新整理（v1 無推送）。
 - **效能**：高流量媒體場景；Redis 快取熱門文章列表第一頁與 emoji 計數（TTL 30s，寫入失效，快取 key 以應用為範圍）；列表查詢走 PG 讀副本；批次取文章評論上限 N=20 篇 x M=3 則（ADR-0007）。
+- **熱度榜 API**：跨文章的熱度排名，按文章熱度降序，快取在 Redis；批次取文章評論 API 同時回傳評論數與 emoji 總數（分開提供，前端可同時顯示）。
 - **靜音資料形態**：評論系統自己的表（user_id → muted_user_id），不外溢到會員系統。
 - **排序 tiebreaker**：created_at 存到毫秒（TIMESTAMPTZ），不另加 sequence 欄位。
 - **emoji 取消**：toggle 語義（按→+1、再按→歸零、再按→+1），最終態只看當前是否 active。
