@@ -8,13 +8,22 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Solution
 
-兩個介面、一個後端：
+一個後端、以應用為隔離單位服務多個產品（一個產品一個應用，key resources 分開）：
 
+- **應用層**：每個產品一個應用（application），擁有獨立的留言、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
 - **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、留言、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶。未登入完全看不到評論區。
-- **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），可搜尋所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看留言數據、刪除留言、施加一般／完全封鎖、人審待審留言（批准／拒絕）、管理自訂敏感字、設定全域留言間隔與每日上限。待審審核以手機體驗為第一優先。
+- **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），先選應用再操作，可搜尋該應用所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看留言數據、刪除留言、施加一般／完全封鎖、人審待審留言（批准／拒絕）、管理自訂敏感字、設定該應用的留言間隔與每日上限。待審審核以手機體驗為第一優先。
 - **機審**：留言送出時經網易雲盾（Yidun）SaaS 判定，命中即進待審（先審後發，僅作者可見）。
 
 ## User Stories
+
+### 應用層
+
+0. As an operator, I want to create an application for each product (system generates the application key), so that each product's comments and settings are isolated.
+0a. As an operator, I want to select an application in the console before operating, so that all search, moderation, blocking and settings act on that application only.
+0b. As an operator, I want to see the list of applications, so that I can navigate between products.
+0c. As an operator, I want to rename an application, so that the display name stays accurate as products evolve.
+0d. As an operator, I want to disable an application, so that a deprecated product's comment section goes dark without deleting data.
 
 ### 前端：閱讀
 
@@ -86,8 +95,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 36. As an operator, I want to apply a normal block to a user (can view, cannot comment), so that I can restrict minor offenders.
 37. As an operator, I want to apply a full block to a user (cannot view, cannot comment), so that I can isolate severe offenders.
 38. As an operator, I want to manually unblock a user, so that I can correct mistakes.
-39. As an operator, I want to set the global comment interval, so that I can control posting frequency.
-40. As an operator, I want to set the global daily comment limit, so that I can control total volume.
+39. As an operator, I want to set the comment interval for the selected application, so that I can control posting frequency.
+40. As an operator, I want to set the daily comment limit for the selected application, so that I can control total volume.
 40a. As an operator, I want to set the new-user cooldown period (how long after registration a user cannot comment), so that I can prevent spammers from creating accounts and immediately flooding the system.
 41. As an operator, I want to see a user's block status (normal / normal-blocked / fully-blocked), so that I can keep track of account states.
 
@@ -99,6 +108,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Implementation Decisions
 
+- **應用層**：一個產品一個應用（application），key resources 按應用分開——留言（文章 key 只在應用內唯一）、emoji、靜音、檢舉、自動封禁（犯規累計按應用計）、封鎖、敏感字、系統設定（間隔／每日上限／新用戶冷卻期／自動封禁 tier）、審計紀錄；用戶與操作員跨應用共用，但各應用內狀態互相獨立；封鎖不跨應用（ADR-0009）。所有 API（前端＋控制台）必帶應用 key；控制台操作前先選應用；資料表加 application_id，unique constraint 改複合鍵；Redis 快取 key 與批次端點（N 篇 x M 則）以應用為範圍；雲盾設定按應用配置（整合細節待補，屆時更新 ADR-0001）。應用由控制台建立、系統產生應用 key；應用可改名、可停用（停用＝前端 API 一律 404／評論區熄滅，資料保留）；應用不可刪除。
 - **結構**：兩層＋分支內扁平（無 @ 對象）；主評論支援三種排序（relevant 熱度降序 / newest 降序 / oldest 升序），預設 relevant；分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
 - **熱度**：emoji 總數（笑＋哭＋加油）＋分支內回覆數；relevant 排序以此降序。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
@@ -111,12 +121,12 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **人審**：操作員批准／拒絕；被拒留言對作者顯示「未通過審核」；無超時自動批准／拒絕。
 - **刪除**：僅操作員可刪；刪主評論留「此留言已被 01 管理員刪除」佔位、回覆保留；分支回覆被刪單則移除；無復原按鈕（審計留痕）。支援批次刪除：按文章 key（刪該文章所有留言）、按用戶（刪該用戶所有留言）。
 - **封鎖**：無期限、可手動解封；一般／完全兩種模式都不隱藏既有留言（ADR-0004）；被拒時回明確訊息。
-- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；全域單一值。新用戶冷卻期：註冊後 N 時間內不能留言，N 由控制台設定。
+- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；按應用設定單一值。新用戶冷卻期：註冊後 N 時間內不能留言，N 按應用由控制台設定。
 - **內容**：純文字、上限 1000 字、允許換行、URL 當普通文字。
-- **控制台**：響應式網頁；審核以行動體驗為第一優先；搜尋結果可直接刪；用戶搜尋以會員 ID 為主、暱稱為輔（會員系統提供查詢介面）；審計紀錄記操作人＋時間、UI 只做列表。
+- **控制台**：響應式網頁；操作前先選應用，所有操作以所選應用為範圍；審核以行動體驗為第一優先；搜尋結果可直接刪；用戶搜尋以會員 ID 為主、暱稱為輔（會員系統提供查詢介面）；審計紀錄記操作人＋時間、UI 只做列表。
 - **整合**：前端會員系統與控制台內部授權是兩套獨立系統；操作員帳號沿用內部授權系統；前端 API 優先、不出 widget／SDK。
 - **即時性**：自己的留言樂觀更新立即出現；他人的新留言需重新整理（v1 無推送）。
-- **效能**：高流量媒體場景；Redis 快取熱門文章列表第一頁與 emoji 計數（TTL 30s，寫入失效）；列表查詢走 PG 讀副本；批次取文章評論上限 N=20 篇 x M=3 則（ADR-0007）。
+- **效能**：高流量媒體場景；Redis 快取熱門文章列表第一頁與 emoji 計數（TTL 30s，寫入失效，快取 key 以應用為範圍）；列表查詢走 PG 讀副本；批次取文章評論上限 N=20 篇 x M=3 則（ADR-0007）。
 - **靜音資料形態**：評論系統自己的表（user_id → muted_user_id），不外溢到會員系統。
 - **排序 tiebreaker**：created_at 存到毫秒（TIMESTAMPTZ），不另加 sequence 欄位。
 - **emoji 取消**：toggle 語義（按→+1、再按→歸零、再按→+1），最終態只看當前是否 active。
@@ -130,7 +140,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 - **單一測試 seam：HTTP API 層**（前端 API＋控制台 API）。所有行為從 API 的輸入／輸出觀察；雲盾以合約測試樁代替，不依賴真實服務；UI（網頁／App／控制台）薄，不另建測試 seam。
 - **好的測試只測外部行為**：透過公開介面（前端 API、控制台 API）驅動，不斷言內部結構。狀態機（留言的 pending → published / rejected、用戶的 normal → normal-blocked / fully-blocked）以輸入與可觀察輸出驗證。
-- **測試模組**：評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
+- **測試模組**：應用隔離（兩應用同文章 key 互不干擾、封鎖／設定／敏感字按應用獨立）、評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
 - **Prior art**：repo 目前是純文件（無程式碼），測試從零開始；機審邊界（雲盾回應）以合約測試樁代替，不依賴真實服務。
 
 ## Out of Scope
@@ -147,10 +157,13 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - 針對個別用戶覆寫間隔／額度
 - 待審超時自動批准／拒絕
 - 控制台原生 App／PWA
+- 跨應用聯合封鎖（一次封全部應用）
+- 應用刪除（資料永久保留，只可停用）
+- 應用層級的操作員權限差異（單一權限，所有操作員可管理所有應用）
 
 ## Further Notes
 
 - **Issue tracker**：spec 待發佈到 Jira（GitHub 在後）。發佈時套用 `ready-for-agent` label。
-- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略、0008 檢舉驅動自動封禁）。
+- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略、0008 檢舉驅動自動封禁、0009 應用層隔離）。
 - 雲盾整合細節（同步／非同步判定、自訂詞同步方式、API 形態）待補，屆時更新 ADR-0001。
 - 詳細 user story 清單（中文版）見 `docs/user-stories.md`。
