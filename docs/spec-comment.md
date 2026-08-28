@@ -86,6 +86,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 30b. As an operator, I want to bulk-delete all comments by a specific user, so that I can remove a spammer's entire footprint in one action.
 31. As an operator, I want to search users (member ID primary, nickname secondary), so that I can manage from the user side.
 32. As an operator, I want to see a user's comment stats (total, status breakdown, last-30-days daily volume, last comment time, account status), so that I can decide whether to block them.
+32a. As an operator, I want to look up a specific main comment by its comment ID, so that I can directly locate and handle it (e.g. when receiving a report or customer complaint).
 
 ### 控制台：審核
 
