@@ -4,16 +4,16 @@ Triage label: `ready-for-agent`
 
 ## Problem Statement
 
-HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。今天沒有這個產品：讀者無處留言、無法互相回應、無法對留言表達共鳴；同時，媒體場景下開放留言必然帶來違規內容與違規用戶，營運團隊需要工具去搜尋、審核、刪除與封鎖，而現有工具（或沒有工具）做不到，且操作員反映必須在桌面電腦才能操作，通勤時段無法處理時間敏感的待審留言。
+HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。今天沒有這個產品：讀者無處寫評論、無法互相回應、無法對評論表達共鳴；同時，媒體場景下開放評論必然帶來違規內容與違規用戶，營運團隊需要工具去搜尋、審核、刪除與封鎖，而現有工具（或沒有工具）做不到，且操作員反映必須在桌面電腦才能操作，通勤時段無法處理時間敏感的待審評論。
 
 ## Solution
 
 一個後端、以應用為隔離單位服務多個產品（一個產品一個應用，key resources 分開）：
 
-- **應用層**：每個產品一個應用（application），擁有獨立的留言、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。留言 ID 生成時即全球唯一（ULID，經 API 暴露），前端以此單一 ID 構造留言的 canonical URL；應用 slug 是可選的 URL 可讀性前綴。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
-- **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、留言、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶。未登入完全看不到評論區。
-- **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），先選應用再操作，可搜尋該應用所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看留言數據、刪除留言、施加一般／完全封鎖、人審待審留言（批准／拒絕）、管理自訂敏感字、設定該應用的留言間隔與每日上限。待審審核以手機體驗為第一優先。
-- **機審**：留言送出時經網易雲盾（Yidun）SaaS 判定，命中即進待審（先審後發，僅作者可見）。
+- **應用層**：每個產品一個應用（application），擁有獨立的評論、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。評論 ID 生成時即全球唯一（ULID，經 API 暴露），前端以此單一 ID 構造評論的 canonical URL；應用 slug 是可選的 URL 可讀性前綴。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
+- **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、寫評論、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶。未登入完全看不到評論區。
+- **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），先選應用再操作，可搜尋該應用所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看評論數據、刪除評論、施加一般／完全封鎖、人審待審評論（批准／拒絕）、管理自訂敏感字、設定該應用的評論間隔與每日上限。待審審核以手機體驗為第一優先。
+- **機審**：評論送出時經網易雲盾（Yidun）SaaS 判定，命中即進待審（先審後發，僅作者可見）。
 
 ## User Stories
 
@@ -37,19 +37,19 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 5. As a logged-in user, I want to see the total count of each emoji on a comment, so that I can gauge how much it resonates.
 6. As a logged-in user, I want to see my own pending-review comments marked "審核中" (visible only to me), so that I know my comment was submitted and is awaiting review.
 7. As a logged-in user, I want to see my own rejected comments marked "未通過審核", so that I know my comment did not pass review.
-8. As a logged-in user, I want deleted main comments to appear as a "此留言已被 01 管理員刪除" placeholder (replies preserved), so that the conversation still makes sense.
+8. As a logged-in user, I want deleted main comments to appear as a "此評論已被 01 管理員刪除" placeholder (sub-comments preserved), so that the conversation still makes sense.
 9. As a visitor, I cannot see the comment section at all when not logged in, so that every interaction has an accountable identity (product decision).
 9a. As a logged-in user, I want to batch-fetch the top few comments, total comment count, and total emoji count for multiple articles in one request (capped at N articles x M comments each), so that the listing page can preview comment activity across articles without overloading the system.
 9b. As a logged-in user, I want to see a hot-comment-list (articles ranked by 文章熱度), so that I can jump straight to the most active discussions without browsing each article.
 
-### 前端：留言
+### 前端：寫評論
 
 10. As a logged-in user, I want to post a main comment (plain text, max 1000 chars, line breaks allowed), so that I can join the discussion.
 11. As a logged-in user, I want to reply within a branch (no @-mention, no new level, chronological order), so that I can converse without deep nesting.
 12. As a logged-in user, I want a clear error with remaining wait time when my comment interval has not elapsed, so that I know when I can post again.
 13. As a logged-in user, I want a clear error with today's remaining quota when my daily limit is exhausted, so that I know I am out of quota.
 14. As a logged-in user, I want my comment to enter pending review (visible only to me) when it hits a sensitive word, so that I know it needs human review.
-15. As a blocked user, I want a clear "你的帳號已被限制留言" error when I try to comment, so that I know my account is restricted.
+15. As a blocked user, I want a clear "你的帳號已被限制寫評論" error when I try to comment, so that I know my account is restricted.
 15a. As an auto-banned user, I want a clear error indicating I am temporarily restricted due to reports, so that I know why I cannot comment.
 16. As a fully-blocked user, I cannot see the comment section at all, so that full block is total isolation (product decision).
 
@@ -111,25 +111,25 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 ## Implementation Decisions
 
-- **應用層**：一個產品一個應用（application），key resources 按應用分開——留言（文章 key 只在應用內唯一）、emoji、靜音、檢舉、自動封禁（犯規累計按應用計）、封鎖、敏感字、系統設定（間隔／每日上限／新用戶冷卻期／自動封禁 tier）、審計紀錄；用戶與操作員跨應用共用，但各應用內狀態互相獨立；封鎖不跨應用（ADR-0009）。所有 API（前端＋控制台）必帶應用 key；控制台操作前先選應用；資料表加 application_id，unique constraint 改複合鍵；Redis 快取 key 與批次端點（N 篇 x M 則）以應用為範圍；雲盾設定按應用配置（整合細節待補，屆時更新 ADR-0001）。應用由控制台建立、系統產生應用 key；應用可改名、可停用（停用＝前端 API 一律 404／評論區熄滅，資料保留）；應用不可刪除。
-- **識別字**：應用 key＝機器識別字（系統產生，API 呼叫必帶）；應用 slug＝公開識別字（操作員建立時設定，小寫英數字＋連字號、長度 3–32、全系統唯一、建立後不可改——URL 穩定性優先，要改的是顯示名稱），角色是可選的 URL 可讀性前綴、不參與唯一性。留言 ID＝生成時即全球唯一的 ULID（26 字元、Crockford base32、時間排序），經 API 暴露；前端以此單一 ID 構造每則留言的 canonical URL（文章已有自己的 canonical URL，留言也要有自己的），零組合 logic；URL 路徑結構由前端自定（想加應用 slug 前綴就加），評論系統不擁有 URL。留言表主鍵即留言 ID，其餘表複合鍵照舊；留言 ID 雖全球唯一，存取仍以應用 key 為範圍（用別的應用 key 查 → 404，隔離不變）。
-- **結構**：兩層＋分支內扁平（無 @ 對象）；主評論支援三種排序（relevant 熱度降序 / newest 降序 / oldest 升序），預設 relevant；分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
-- **熱度**：emoji 總數（笑＋哭＋加油）＋分支內回覆數；relevant 排序以此降序。
+- **應用層**：一個產品一個應用（application），key resources 按應用分開——評論（文章 key 只在應用內唯一）、emoji、靜音、檢舉、自動封禁（犯規累計按應用計）、封鎖、敏感字、系統設定（間隔／每日上限／新用戶冷卻期／自動封禁 tier）、審計紀錄；用戶與操作員跨應用共用，但各應用內狀態互相獨立；封鎖不跨應用（ADR-0009）。所有 API（前端＋控制台）必帶應用 key；控制台操作前先選應用；資料表加 application_id，unique constraint 改複合鍵；Redis 快取 key 與批次端點（N 篇 x M 則）以應用為範圍；雲盾設定按應用配置（整合細節待補，屆時更新 ADR-0001）。應用由控制台建立、系統產生應用 key；應用可改名、可停用（停用＝前端 API 一律 404／評論區熄滅，資料保留）；應用不可刪除。
+- **識別字**：應用 key＝機器識別字（系統產生，API 呼叫必帶）；應用 slug＝公開識別字（操作員建立時設定，小寫英數字＋連字號、長度 3–32、全系統唯一、建立後不可改——URL 穩定性優先，要改的是顯示名稱），角色是可選的 URL 可讀性前綴、不參與唯一性。評論 ID＝生成時即全球唯一的 ULID（26 字元、Crockford base32、時間排序），經 API 暴露；前端以此單一 ID 構造每則評論的 canonical URL（文章已有自己的 canonical URL，評論也要有自己的），零組合 logic；URL 路徑結構由前端自定（想加應用 slug 前綴就加），評論系統不擁有 URL。評論表主鍵即評論 ID，其餘表複合鍵照舊；評論 ID 雖全球唯一，存取仍以應用 key 為範圍（用別的應用 key 查 → 404，隔離不變）。
+- **結構**：兩層＋分支內扁平（無 @ 對象）；主評論支援三種排序（relevant 熱度降序 / newest 降序 / oldest 升序），預設 relevant；分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示子評論數。
+- **熱度**：emoji 總數（笑＋哭＋加油）＋分支內子評論數；relevant 排序以此降序。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
 - **emoji**：固定 3 個（笑／哭／加油）；每 emoji 每人每則一次、可取消；三連＝三個全給的快捷、每則一次；只顯示數字、不顯示誰按；可按自己的。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
-- **檢舉**：用戶對單則留言檢舉，檢舉後該則對檢舉者永遠隱藏、數量不限；控制台可見檢舉紀錄（被檢舉者、檢舉者、被檢舉留言）。
+- **檢舉**：用戶對單則評論檢舉，檢舉後該則對檢舉者永遠隱藏、數量不限；控制台可見檢舉紀錄（被檢舉者、檢舉者、被檢舉評論）。
 - **自動封禁**：用戶被檢舉達 tier 門檻即自動封禁，採累計犯規升級模型（第 1 次 tier 1 封 1 天、第 2 次 tier 2 封 1 週、第 3 次 tier 3 封 1 個月、第 4 次永久封禁）；tier 1-3 為一般封鎖，永久封禁為完全封鎖；門檻由控制台設定（預設 5/10/20，24 小時滾動窗口計算）；操作員可見狀態與原因、可手動解封；審計紀錄記「系統自動封禁」。
-- **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的留言（ADR-0002）；無檢舉機制（找客服）。
+- **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的評論（ADR-0002）；無檢舉機制（找客服）。
 - **機審**：網易雲盾 SaaS 判定，命中即待審；先審後發；自訂詞同步到雲盾自訂詞庫（ADR-0001，整合細節待補）。
-- **人審**：操作員批准／拒絕；被拒留言對作者顯示「未通過審核」；無超時自動批准／拒絕。
-- **刪除**：僅操作員可刪；刪主評論留「此留言已被 01 管理員刪除」佔位、回覆保留；分支回覆被刪單則移除；無復原按鈕（審計留痕）。支援批次刪除：按文章 key（刪該文章所有留言）、按用戶（刪該用戶所有留言）。
-- **封鎖**：無期限、可手動解封；一般／完全兩種模式都不隱藏既有留言（ADR-0004）；被拒時回明確訊息。
-- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；按應用設定單一值。新用戶冷卻期：註冊後 N 時間內不能留言，N 按應用由控制台設定。
+- **人審**：操作員批准／拒絕；被拒評論對作者顯示「未通過審核」；無超時自動批准／拒絕。
+- **刪除**：僅操作員可刪；刪主評論留「此評論已被 01 管理員刪除」佔位、子評論保留；分支子評論被刪單則移除；無復原按鈕（審計留痕）。支援批次刪除：按文章 key（刪該文章所有評論）、按用戶（刪該用戶所有評論）。
+- **封鎖**：無期限、可手動解封；一般／完全兩種模式都不隱藏既有評論（ADR-0004）；被拒時回明確訊息。
+- **額度**：送出即計（待審、被拒都算）；間隔從上次送出起算；日界 UTC+8；按應用設定單一值。新用戶冷卻期：註冊後 N 時間內不能寫評論，N 按應用由控制台設定。
 - **內容**：純文字、上限 1000 字、允許換行、URL 當普通文字。
 - **控制台**：響應式網頁；操作前先選應用，所有操作以所選應用為範圍；審核以行動體驗為第一優先；搜尋結果可直接刪；用戶搜尋以會員 ID 為主、暱稱為輔（會員系統提供查詢介面）；審計紀錄記操作人＋時間、UI 只做列表。
 - **整合**：前端會員系統與控制台內部授權是兩套獨立系統；操作員帳號沿用內部授權系統；前端 API 優先、不出 widget／SDK。
-- **即時性**：自己的留言樂觀更新立即出現；他人的新留言需重新整理（v1 無推送）。
+- **即時性**：自己的評論樂觀更新立即出現；他人的新評論需重新整理（v1 無推送）。
 - **效能**：高流量媒體場景；Redis 快取熱門文章列表第一頁與 emoji 計數（TTL 30s，寫入失效，快取 key 以應用為範圍）；列表查詢走 PG 讀副本；批次取文章評論上限 N=20 篇 x M=3 則（ADR-0007）。
 - **熱度榜 API**：跨文章的熱度排名，按文章熱度降序，快取在 Redis；批次取文章評論 API 同時回傳評論數與 emoji 總數（分開提供，前端可同時顯示）。
 - **靜音資料形態**：評論系統自己的表（user_id → muted_user_id），不外溢到會員系統。
@@ -138,22 +138,22 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **控制台搜尋分頁**：傳統分頁（頁碼），非無限捲動；操作員需跳頁與看總數。
 - **審計紀錄保留**：永久保留（合規需求，儲存成本低）。
 - **技術棧**：後端 NestJS + TypeScript；資料庫 PostgreSQL（ADR-0005）；前端框架待定（網頁＋App）。
-- **機審整合模式**：同步。留言送出時 call 雲盾 API，等回應（幾百 ms），命中即待審、不命中即發佈。
+- **機審整合模式**：同步。評論送出時 call 雲盾 API，等回應（幾百 ms），命中即待審、不命中即發佈。
 - **控制台授權**：Logto（OIDC SaaS），NestJS 驗證 Logto 簽發的 JWT；不自建登入頁（ADR-0006）。前端會員系統整合介面待定。
 
 ## Testing Decisions
 
 - **單一測試 seam：HTTP API 層**（前端 API＋控制台 API）。所有行為從 API 的輸入／輸出觀察；雲盾以合約測試樁代替，不依賴真實服務；UI（網頁／App／控制台）薄，不另建測試 seam。
-- **好的測試只測外部行為**：透過公開介面（前端 API、控制台 API）驅動，不斷言內部結構。狀態機（留言的 pending → published / rejected、用戶的 normal → normal-blocked / fully-blocked）以輸入與可觀察輸出驗證。
-- **測試模組**：應用隔離（兩應用同文章 key 互不干擾、封鎖／設定／敏感字按應用獨立、slug 全系統唯一且建立後不可改、留言 ID 跨應用全球唯一）、評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
+- **好的測試只測外部行為**：透過公開介面（前端 API、控制台 API）驅動，不斷言內部結構。狀態機（評論的 pending → published / rejected、用戶的 normal → normal-blocked / fully-blocked）以輸入與可觀察輸出驗證。
+- **測試模組**：應用隔離（兩應用同文章 key 互不干擾、封鎖／設定／敏感字按應用獨立、slug 全系統唯一且建立後不可改、評論 ID 跨應用全球唯一）、評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
 - **Prior art**：repo 目前是純文件（無程式碼），測試從零開始；機審邊界（雲盾回應）以合約測試樁代替，不依賴真實服務。
 
 ## Out of Scope
 
-- 置頂留言、官方／認證標籤、單篇文章關閉留言
-- 通知（回覆通知、審核結果通知）
-- 檢舉機制（用戶可檢舉單則留言，控制台可見檢舉紀錄）
-- 用戶自刪／自編輯留言
+- 置頂評論、官方／認證標籤、單篇文章關閉評論
+- 通知（子評論通知、審核結果通知）
+- 檢舉機制（用戶可檢舉單則評論，控制台可見檢舉紀錄）
+- 用戶自刪／自編輯評論
 - 熱門排序
 - 嵌入式 widget／SDK
 - 操作員帳號管理（沿用內部授權系統）
@@ -170,6 +170,6 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 ## Further Notes
 
 - **Issue tracker**：spec 待發佈到 Jira（GitHub 在後）。發佈時套用 `ready-for-agent` label。
-- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有留言、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略、0008 檢舉驅動自動封禁、0009 應用層隔離）。
+- 詞彙表見 `CONTEXT.md`；ADR 見 `docs/adr/`（0001 雲盾機審、0002 不可自刪自編、0003 登入牆、0004 封鎖不隱藏既有評論、0005 PostgreSQL、0006 Logto 控制台授權、0007 高流量效能策略、0008 檢舉驅動自動封禁、0009 應用層隔離）。
 - 雲盾整合細節（同步／非同步判定、自訂詞同步方式、API 形態）待補，屆時更新 ADR-0001。
 - 詳細 user story 清單（中文版）見 `docs/user-stories.md`。
