@@ -10,7 +10,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 一個後端、以應用為隔離單位服務多個產品（一個產品一個應用，key resources 分開）：
 
-- **應用層**：每個產品一個應用（application），擁有獨立的留言、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
+- **應用層**：每個產品一個應用（application），擁有獨立的留言、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。留言 ID 生成時即全球唯一（ULID，經 API 暴露），前端以此單一 ID 構造留言的 canonical URL；應用 slug 是可選的 URL 可讀性前綴。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
 - **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、留言、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶。未登入完全看不到評論區。
 - **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），先選應用再操作，可搜尋該應用所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看留言數據、刪除留言、施加一般／完全封鎖、人審待審留言（批准／拒絕）、管理自訂敏感字、設定該應用的留言間隔與每日上限。待審審核以手機體驗為第一優先。
 - **機審**：留言送出時經網易雲盾（Yidun）SaaS 判定，命中即進待審（先審後發，僅作者可見）。
@@ -24,6 +24,8 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 0b. As an operator, I want to see the list of applications, so that I can navigate between products.
 0c. As an operator, I want to rename an application, so that the display name stays accurate as products evolve.
 0d. As an operator, I want to disable an application, so that a deprecated product's comment section goes dark without deleting data.
+0e. As an operator, I want to set a URL-friendly slug when creating an application (system-wide unique, immutable after creation), so that URLs can optionally carry a human-readable app identifier as a prefix.
+0f. As a logged-in user, I want every comment to have a single globally unique ID (generated at creation, exposed via the API), so that the frontend can build each comment's canonical URL with zero composition logic and comments can be shared and indexed like articles.
 
 ### 前端：閱讀
 
@@ -109,6 +111,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 ## Implementation Decisions
 
 - **應用層**：一個產品一個應用（application），key resources 按應用分開——留言（文章 key 只在應用內唯一）、emoji、靜音、檢舉、自動封禁（犯規累計按應用計）、封鎖、敏感字、系統設定（間隔／每日上限／新用戶冷卻期／自動封禁 tier）、審計紀錄；用戶與操作員跨應用共用，但各應用內狀態互相獨立；封鎖不跨應用（ADR-0009）。所有 API（前端＋控制台）必帶應用 key；控制台操作前先選應用；資料表加 application_id，unique constraint 改複合鍵；Redis 快取 key 與批次端點（N 篇 x M 則）以應用為範圍；雲盾設定按應用配置（整合細節待補，屆時更新 ADR-0001）。應用由控制台建立、系統產生應用 key；應用可改名、可停用（停用＝前端 API 一律 404／評論區熄滅，資料保留）；應用不可刪除。
+- **識別字**：應用 key＝機器識別字（系統產生，API 呼叫必帶）；應用 slug＝公開識別字（操作員建立時設定，小寫英數字＋連字號、長度 3–32、全系統唯一、建立後不可改——URL 穩定性優先，要改的是顯示名稱），角色是可選的 URL 可讀性前綴、不參與唯一性。留言 ID＝生成時即全球唯一的 ULID（26 字元、Crockford base32、時間排序），經 API 暴露；前端以此單一 ID 構造每則留言的 canonical URL（文章已有自己的 canonical URL，留言也要有自己的），零組合 logic；URL 路徑結構由前端自定（想加應用 slug 前綴就加），評論系統不擁有 URL。留言表主鍵即留言 ID，其餘表複合鍵照舊；留言 ID 雖全球唯一，存取仍以應用 key 為範圍（用別的應用 key 查 → 404，隔離不變）。
 - **結構**：兩層＋分支內扁平（無 @ 對象）；主評論支援三種排序（relevant 熱度降序 / newest 降序 / oldest 升序），預設 relevant；分支內最舊在前；cursor 分頁；無限捲動（主列表與分支內皆是）；分支預設收合、顯示回覆數。
 - **熱度**：emoji 總數（笑＋哭＋加油）＋分支內回覆數；relevant 排序以此降序。
 - **文章 key**：呼叫方提供的任意字串（建議 UUID），評論系統不管理文章本身。
@@ -140,7 +143,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 - **單一測試 seam：HTTP API 層**（前端 API＋控制台 API）。所有行為從 API 的輸入／輸出觀察；雲盾以合約測試樁代替，不依賴真實服務；UI（網頁／App／控制台）薄，不另建測試 seam。
 - **好的測試只測外部行為**：透過公開介面（前端 API、控制台 API）驅動，不斷言內部結構。狀態機（留言的 pending → published / rejected、用戶的 normal → normal-blocked / fully-blocked）以輸入與可觀察輸出驗證。
-- **測試模組**：應用隔離（兩應用同文章 key 互不干擾、封鎖／設定／敏感字按應用獨立）、評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
+- **測試模組**：應用隔離（兩應用同文章 key 互不干擾、封鎖／設定／敏感字按應用獨立、slug 全系統唯一且建立後不可改、留言 ID 跨應用全球唯一）、評論生命週期（送出→機審→人審→顯示）、額度與間隔、emoji／三連計數、靜音過濾、封鎖模式、控制台搜尋與審計。
 - **Prior art**：repo 目前是純文件（無程式碼），測試從零開始；機審邊界（雲盾回應）以合約測試樁代替，不依賴真實服務。
 
 ## Out of Scope
@@ -159,6 +162,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - 控制台原生 App／PWA
 - 跨應用聯合封鎖（一次封全部應用）
 - 應用刪除（資料永久保留，只可停用）
+- 應用 slug 修改（建立後不可改，URL 穩定性優先）
 - 應用層級的操作員權限差異（單一權限，所有操作員可管理所有應用）
 
 ## Further Notes
