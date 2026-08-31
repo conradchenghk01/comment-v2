@@ -148,7 +148,9 @@ V1 deploys no separate message queue. Redis is used for caching and Kong's share
 
 ## Test Plan And Delivery Order
 
-HTTP integration tests are the single behavioral seam. They run against PostgreSQL and Redis test containers with fake member identity, fake Logto JWT verification, and a contract-test Yidun stub.
+Every functional requirement requires both unit coverage of its domain rule and end-to-end coverage of its externally observable HTTP behavior before it is complete. HTTP end-to-end tests are the single behavioral seam for API contracts: they run against PostgreSQL and Redis test containers with fake member identity, fake Logto JWT verification, and a contract-test Yidun stub. Unit tests do not replace end-to-end tests, and UI smoke tests do not replace either.
+
+The CI quality gate runs typecheck, unit tests, service HTTP end-to-end tests through Kong, and local frontend smoke tests. Each user story is traceable to at least one unit-test case and one end-to-end test case by its story identifier in the test name.
 
 `local` additionally includes a separate Developer Lab frontend application. It is a development-only API client that calls Kong and the deployed local `comment-service` HTTP endpoints, rather than bypassing application code or writing directly to PostgreSQL. Reset seed data includes one local operator and six named users with fixed `accountId`, avatar, and registration-time claims; the lab can switch among those user identities through the local issue-token endpoint and sign in as the operator. It can select an application and exercise every public and console API workflow, including comment creation, moderation, reactions, mute, report, auto-ban, blocks, settings, sensitive words, search, deletion, audit logs, application lifecycle, and failure states. It includes a confirmed, local-only full-reset action that recreates PostgreSQL schema and seed data and clears Redis. Docker Compose starts it only in `local`; the Developer Lab, reset capability, and local login/issue-token endpoints are excluded from `dev`, `staging`, and `production` builds and routing.
 

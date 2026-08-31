@@ -1,0 +1,24 @@
+_format_version: "3.0"
+services:
+  - name: comment-service
+    url: http://comment-service:3000
+    routes:
+      - name: comment-api
+        paths:
+          - /v1
+          - /health
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          policy: redis
+          redis:
+            host: redis
+            port: 6379
+          minute: 300
+          limit_by: ip
+      - name: correlation-id
+        config:
+          header_name: X-Request-Id
+          generator: uuid
+          echo_downstream: true

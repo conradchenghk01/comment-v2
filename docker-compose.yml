@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-comment}
+      POSTGRES_USER: ${POSTGRES_USER:-comment}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis-data:/data
+
+  comment-service:
+    build:
+      context: .
+      dockerfile: apps/comment-service/Dockerfile
+    environment:
+      APP_ENV: local
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-comment}:${POSTGRES_PASSWORD:-change-me-local-only}@postgres:5432/${POSTGRES_DB:-comment}
+      REDIS_URL: redis://redis:6379
+      LOCAL_JWT_SECRET: ${LOCAL_JWT_SECRET:-replace-with-a-long-random-local-secret}
+      LOCAL_OPERATOR_USERNAME: ${LOCAL_OPERATOR_USERNAME:-operator}
+      LOCAL_OPERATOR_PASSWORD: ${LOCAL_OPERATOR_PASSWORD:-change-me-local-only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/v1/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kong:
+    image: kong:3.9
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: "off"
+      KONG_LOG_LEVEL: warn
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./infra/kong/kong.local.yml:/kong/declarative/kong.yml:ro
+    depends_on:
+      comment-service:
+        condition: service_healthy
+
+  console:
+    build:
+      context: .
+      dockerfile: apps/console/Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - kong
+
+  developer-lab:
+    build:
+      context: .
+      dockerfile: apps/developer-lab/Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5174:80"
+    depends_on:
+      - kong
+
+volumes:
+  postgres-data:
+  redis-data:
