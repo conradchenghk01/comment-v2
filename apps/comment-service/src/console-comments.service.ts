@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
 import { CommentRecord } from './comments.service.js';
+import { AuditLogsService } from './audit-logs.service.js';
 
 export interface ConsoleCommentPage { items: CommentRecord[]; page: number; pageSize: number; total: number; }
 export interface ConsoleCommentFilters { keyword?: string; articleKey?: string; status?: 'pending' | 'published' | 'rejected' | 'deleted'; from?: string; to?: string; page: number; pageSize: number; }
 
 @Injectable()
 export class ConsoleCommentsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService) {}
 
   async list(applicationKey: string, filters: ConsoleCommentFilters): Promise<ConsoleCommentPage> {
     const values: unknown[] = [applicationKey];
@@ -27,10 +28,32 @@ export class ConsoleCommentsService {
   }
 
   async delete(applicationKey: string, commentId: string): Promise<void> {
-    const result = await this.database.query(
-      `UPDATE comments comment SET status = 'deleted' FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND comment.id = $2 AND comment.status <> 'deleted'`,
-      [applicationKey, commentId]
-    );
-    if (result.rowCount !== 1) throw new NotFoundException();
+    await this.database.transaction(async (database) => {
+      const result = await database.query(
+        `UPDATE comments comment SET status = 'deleted' FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND comment.id = $2 AND comment.status <> 'deleted'`,
+        [applicationKey, commentId]
+      );
+      if (result.rowCount !== 1) throw new NotFoundException();
+      await this.auditLogs.record(database, applicationKey, 'comment.deleted', 'comment', commentId);
+    });
+  }
+
+  async bulkDeleteByArticle(applicationKey: string, articleKey: string): Promise<{ deletedCount: number }> {
+    return this.bulkDelete(applicationKey, `comment.article_key = $2`, articleKey, 'article');
+  }
+
+  async bulkDeleteByUser(applicationKey: string, memberId: string): Promise<{ deletedCount: number }> {
+    return this.bulkDelete(applicationKey, `comment.author_id = $2`, memberId, 'user');
+  }
+
+  private async bulkDelete(applicationKey: string, targetClause: string, targetId: string, targetType: 'article' | 'user'): Promise<{ deletedCount: number }> {
+    return this.database.transaction(async (database) => {
+      const result = await database.query(
+        `UPDATE comments comment SET status = 'deleted' FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND ${targetClause} AND comment.status <> 'deleted'`,
+        [applicationKey, targetId]
+      );
+      await this.auditLogs.record(database, applicationKey, `comments.bulk_deleted_by_${targetType}`, targetType, targetId, { deletedCount: result.rowCount ?? 0 });
+      return { deletedCount: result.rowCount ?? 0 };
+    });
   }
 }

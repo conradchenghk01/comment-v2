@@ -199,6 +199,12 @@ describe('public comments API', () => {
     const deletedListResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest`, { headers });
     expect(deletedListResponse.status).toBe(200);
     await expect(deletedListResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, status: 'deleted', body: '此評論已被 01 管理員刪除', replyCount: 1 })]) });
+    const bulkUserDeleteResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments/bulk-delete-by-user`, { method: 'POST', headers: consoleHeaders, body: JSON.stringify({ memberId: 'local-reporter-1' }) });
+    expect(bulkUserDeleteResponse.status).toBe(201);
+    await expect(bulkUserDeleteResponse.json()).resolves.toEqual({ deletedCount: 1 });
+    const bulkArticleDeleteResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments/bulk-delete-by-article`, { method: 'POST', headers: consoleHeaders, body: JSON.stringify({ articleKey }) });
+    expect(bulkArticleDeleteResponse.status).toBe(201);
+    await expect(bulkArticleDeleteResponse.json()).resolves.toEqual({ deletedCount: 1 });
     expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'full' }) })).status).toBe(204);
     expect((await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers })).status).toBe(404);
     expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders })).status).toBe(204);

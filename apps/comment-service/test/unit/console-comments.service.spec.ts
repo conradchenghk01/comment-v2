@@ -12,7 +12,18 @@ describe('ConsoleCommentsService', () => {
   });
 
   it('US-30: rejects deletion outside the selected application', async () => {
-    const service = new ConsoleCommentsService({ query: vi.fn().mockResolvedValue({ rowCount: 0, rows: [] }) } as never);
+    const query = vi.fn().mockResolvedValue({ rowCount: 0, rows: [] });
+    const database = { query, transaction: async (work: (executor: never) => Promise<unknown>) => work({ query } as never) };
+    const service = new ConsoleCommentsService(database as never, { record: vi.fn() } as never);
     await expect(service.delete('app', 'other-app-comment')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('US-30a: bulk-deletes only active article comments and audits the action', async () => {
+    const query = vi.fn().mockResolvedValue({ rowCount: 3, rows: [] });
+    const database = { query, transaction: async (work: (executor: never) => Promise<unknown>) => work({ query } as never) };
+    const record = vi.fn().mockResolvedValue(undefined);
+    const service = new ConsoleCommentsService(database as never, { record } as never);
+    await expect(service.bulkDeleteByArticle('app', 'article')).resolves.toEqual({ deletedCount: 3 });
+    expect(record).toHaveBeenCalledWith(expect.anything(), 'app', 'comments.bulk_deleted_by_article', 'article', 'article', { deletedCount: 3 });
   });
 });
