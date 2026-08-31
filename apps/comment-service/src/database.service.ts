@@ -28,6 +28,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         new_user_cooldown_hours INTEGER NOT NULL DEFAULT 24,
         yidun_moderation_enabled BOOLEAN NOT NULL DEFAULT false
       );
+      CREATE TABLE IF NOT EXISTS comments (
+        id CHAR(26) PRIMARY KEY,
+        application_id UUID NOT NULL REFERENCES applications(id),
+        article_key TEXT NOT NULL,
+        root_comment_id CHAR(26) REFERENCES comments(id),
+        author_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        author_avatar_url TEXT NOT NULL,
+        body TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('published', 'pending', 'rejected', 'deleted')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS comments_root_list_idx
+        ON comments (application_id, article_key, created_at DESC, id DESC)
+        WHERE root_comment_id IS NULL AND status = 'published';
     `);
 
     if (process.env.APP_ENV === 'local') {

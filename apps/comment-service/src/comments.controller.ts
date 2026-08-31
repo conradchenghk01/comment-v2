@@ -1,0 +1,25 @@
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
+import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CommentsService, CommentRecord } from './comments.service.js';
+import { LocalMemberGuard, MemberIdentity } from './local-member.guard.js';
+
+class CreateCommentDto { @IsString() @MinLength(1) body!: string; }
+class ListCommentsDto { @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit = 20; }
+
+@Controller()
+@UseGuards(LocalMemberGuard)
+export class CommentsController {
+  constructor(private readonly comments: CommentsService) {}
+
+  @Post('articles/:articleKey/comments')
+  create(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
+    return this.comments.create(applicationKey, articleKey, body.body, request.member);
+  }
+
+  @Get('articles/:articleKey/comments')
+  list(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Query() query: ListCommentsDto): Promise<CommentRecord[]> {
+    return this.comments.list(applicationKey, articleKey, query.limit);
+  }
+}

@@ -72,3 +72,28 @@ describe('application API', () => {
     await expect(enableResponse.json()).resolves.toMatchObject({ status: 'active' });
   });
 });
+
+describe('public comments API', () => {
+  it('US-10/1: creates a published root comment and lists it for its article', async () => {
+    const operatorResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/operator/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'operator', password: 'change-me-local-only' })
+    });
+    const operatorToken = (await operatorResponse.json() as { accessToken: string }).accessToken;
+    const slug = `comments-${Date.now()}`;
+    const appResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}` }, body: JSON.stringify({ name: 'Comments E2E', slug })
+    });
+    const application = await appResponse.json() as { key: string };
+    const memberResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'author' }) });
+    const memberToken = (await memberResponse.json() as { accessToken: string }).accessToken;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}`, 'X-Application-Key': application.key };
+    const createResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'First comment' }) });
+    expect(createResponse.status).toBe(201);
+    const comment = await createResponse.json() as { id: string; status: string; body: string };
+    expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
+    expect(comment.id).toHaveLength(26);
+    const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { headers });
+    expect(listResponse.status).toBe(200);
+    await expect(listResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: comment.id })]));
+  });
+});
