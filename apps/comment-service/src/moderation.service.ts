@@ -2,13 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
 import { ConsoleCommentPage } from './console-comments.service.js';
 import { CommentRecord } from './comments.service.js';
+import { AuditLogsService } from './audit-logs.service.js';
 
 export const rejectionCodes = ['violates_guidelines', 'spam', 'harassment', 'hate', 'sexual_content', 'misinformation'] as const;
 export type RejectionCode = typeof rejectionCodes[number];
 
 @Injectable()
 export class ModerationService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService) {}
 
   async pending(applicationKey: string, page: number, pageSize: number): Promise<ConsoleCommentPage> {
     const result = await this.database.query<CommentRecord & { total: string }>(
@@ -28,10 +29,13 @@ export class ModerationService {
   }
 
   private async transition(applicationKey: string, commentId: string, status: 'published' | 'rejected', rejectionCode: RejectionCode | null = null): Promise<void> {
-    const result = await this.database.query(
-      `UPDATE comments comment SET status = $3, rejection_code = $4 FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND comment.id = $2 AND comment.status = 'pending'`,
-      [applicationKey, commentId, status, rejectionCode]
-    );
-    if (result.rowCount !== 1) throw new NotFoundException();
+    await this.database.transaction(async (database) => {
+      const result = await database.query(
+        `UPDATE comments comment SET status = $3, rejection_code = $4 FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND comment.id = $2 AND comment.status = 'pending'`,
+        [applicationKey, commentId, status, rejectionCode]
+      );
+      if (result.rowCount !== 1) throw new NotFoundException();
+      await this.auditLogs.record(database, applicationKey, `comment.${status === 'published' ? 'approved' : 'rejected'}`, 'comment', commentId, rejectionCode ? { rejectionCode } : {});
+    });
   }
 }

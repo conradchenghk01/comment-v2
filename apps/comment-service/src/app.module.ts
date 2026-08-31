@@ -25,9 +25,11 @@ import { PublicBlockGuard } from './public-block.guard.js';
 import { AutoBanService } from './auto-ban.service.js';
 import { ModerationController } from './moderation.controller.js';
 import { ModerationService } from './moderation.service.js';
+import { AuditLogsController } from './audit-logs.controller.js';
+import { AuditLogsService } from './audit-logs.service.js';
 
 @Module({
-  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController, ModerationController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService, AutoBanService, ModerationService]
+  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController, ModerationController, AuditLogsController],
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService, AutoBanService, ModerationService, AuditLogsService]
 })
 export class AppModule {}

@@ -85,6 +85,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL,
         trigger_count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (application_id, member_id)
       );
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id CHAR(26) PRIMARY KEY, application_id UUID NOT NULL REFERENCES applications(id), operator_id TEXT,
+        action TEXT NOT NULL, target_type TEXT NOT NULL, target_id TEXT NOT NULL, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS audit_logs_application_created_idx ON audit_logs (application_id, created_at DESC, id DESC);
     `);
 
     if (process.env.APP_ENV === 'local') {
