@@ -21,4 +21,8 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comment-openapi
+          path: apps/comment-service/openapi.json
       - run: pnpm test:e2e

@@ -1,12 +1,15 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  const document = SwaggerModule.createDocument(app, new DocumentBuilder().setTitle('Comment API').setVersion('v1').addBearerAuth().build());
+  SwaggerModule.setup('v1/docs', app, document);
   app.enableShutdownHooks();
   await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 }
