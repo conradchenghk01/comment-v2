@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { ulid } from 'ulid';
-import { DatabaseService } from './database.service.js';
+import { DatabaseExecutor, DatabaseService } from './database.service.js';
 import { MemberIdentity } from './local-member.guard.js';
 
 export interface CommentRecord {
@@ -28,14 +28,17 @@ export class CommentsService {
 
   async create(applicationKey: string, articleKey: string, body: string, member: MemberIdentity): Promise<CommentRecord> {
     this.validateBody(body);
-    const result = await this.database.query<CommentRecord>(
+    return this.withTransaction(async (database) => {
+      await this.assertPostingAllowed(database, applicationKey, member);
+      const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, author_id, author_name, author_avatar_url, body, status)
        SELECT $1, id, $3, $4, $5, $6, $7, 'published' FROM applications WHERE key = $2 AND status = 'active'
         RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
       [ulid(), applicationKey, articleKey, member.accountId, member.name, member.avatarUrl, body]
-    );
-    if (result.rowCount !== 1) throw new NotFoundException();
-    return result.rows[0];
+      );
+      if (result.rowCount !== 1) throw new NotFoundException();
+      return result.rows[0];
+    });
   }
 
   async list(applicationKey: string, articleKey: string, sort: CommentSort = 'relevant', cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -62,16 +65,19 @@ export class CommentsService {
 
   async reply(applicationKey: string, rootCommentId: string, body: string, member: MemberIdentity): Promise<CommentRecord> {
     this.validateBody(body);
-    const result = await this.database.query<CommentRecord>(
+    return this.withTransaction(async (database) => {
+      await this.assertPostingAllowed(database, applicationKey, member);
+      const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, root_comment_id, author_id, author_name, author_avatar_url, body, status)
        SELECT $1, parent.application_id, parent.article_key, parent.id, $4, $5, $6, $7, 'published'
        FROM comments parent JOIN applications ON applications.id = parent.application_id
        WHERE applications.key = $2 AND applications.status = 'active' AND parent.id = $3 AND parent.root_comment_id IS NULL AND parent.status = 'published'
         RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
       [ulid(), applicationKey, rootCommentId, member.accountId, member.name, member.avatarUrl, body]
-    );
-    if (result.rowCount !== 1) throw new NotFoundException();
-    return result.rows[0];
+      );
+      if (result.rowCount !== 1) throw new NotFoundException();
+      return result.rows[0];
+    });
   }
 
   async branch(applicationKey: string, rootCommentId: string, cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -109,6 +115,39 @@ export class CommentsService {
   private encodeCursor(comment: DatabaseCommentRecord, sort: CommentSort): string {
     const createdAt = comment.cursorCreatedAt ?? new Date(comment.createdAt).toISOString();
     return Buffer.from(JSON.stringify(sort === 'relevant' ? { id: comment.id, createdAt, heat: comment.heat } : { id: comment.id, createdAt })).toString('base64url');
+  }
+
+  private async assertPostingAllowed(database: DatabaseExecutor, applicationKey: string, member: MemberIdentity): Promise<void> {
+    const settings = await database.query<{ application_id: string; comment_interval_seconds: number; daily_comment_limit: number; new_user_cooldown_hours: number }>(
+      `SELECT application.id AS application_id, settings.comment_interval_seconds, settings.daily_comment_limit, settings.new_user_cooldown_hours FROM applications application JOIN application_settings settings ON settings.application_id = application.id WHERE application.key = $1 AND application.status = 'active' FOR UPDATE`,
+      [applicationKey]
+    );
+    if (settings.rowCount !== 1) throw new NotFoundException();
+    const rules = settings.rows[0];
+    const cooldownEndsAt = new Date(new Date(member.createdAt).getTime() + rules.new_user_cooldown_hours * 3_600_000);
+    if (cooldownEndsAt > new Date()) throw this.rateLimitExceeded({ code: 'new_user_cooldown_active', message: 'New-user cooldown is active', details: { cooldownEndsAt: cooldownEndsAt.toISOString() } });
+    const lastComment = await database.query<{ created_at: Date }>(
+      `SELECT created_at FROM comments WHERE application_id = $1 AND author_id = $2 ORDER BY created_at DESC LIMIT 1`,
+      [rules.application_id, member.accountId]
+    );
+    const lastCreatedAt = lastComment.rows[0]?.created_at;
+    if (lastCreatedAt) {
+      const retryAfterSeconds = Math.ceil((new Date(lastCreatedAt).getTime() + rules.comment_interval_seconds * 1_000 - Date.now()) / 1_000);
+      if (retryAfterSeconds > 0) throw this.rateLimitExceeded({ code: 'comment_interval_active', message: 'Comment interval is active', details: { retryAfterSeconds } });
+    }
+    const daily = await database.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM comments WHERE application_id = $1 AND author_id = $2 AND created_at >= (date_trunc('day', now() AT TIME ZONE 'Asia/Hong_Kong') AT TIME ZONE 'Asia/Hong_Kong')`,
+      [rules.application_id, member.accountId]
+    );
+    if (Number(daily.rows[0]?.count ?? 0) >= rules.daily_comment_limit) throw this.rateLimitExceeded({ code: 'daily_comment_limit_exceeded', message: 'Daily comment limit is exhausted', details: { remainingDailyQuota: 0 } });
+  }
+
+  private withTransaction<T>(work: (database: DatabaseExecutor) => Promise<T>): Promise<T> {
+    return this.database.transaction(work);
+  }
+
+  private rateLimitExceeded(response: Record<string, unknown>): HttpException {
+    return new HttpException(response, HttpStatus.TOO_MANY_REQUESTS);
   }
 
   private validateBody(body: string): void {

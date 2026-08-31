@@ -100,6 +100,17 @@ describe('public comments API', () => {
     const comment = await createResponse.json() as { id: string; status: string; body: string };
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
     expect(comment.id).toHaveLength(26);
+    const intervalResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Too soon' }) });
+    expect(intervalResponse.status).toBe(429);
+    await expect(intervalResponse.json()).resolves.toMatchObject({ code: 'comment_interval_active', details: { retryAfterSeconds: expect.any(Number) } });
+    const reactorTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'reactor' }) });
+    const reactorToken = (await reactorTokenResponse.json() as { accessToken: string }).accessToken;
+    const reactorHeaders = { ...headers, Authorization: `Bearer ${reactorToken}` };
+    const newUserTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'new-user' }) });
+    const newUserToken = (await newUserTokenResponse.json() as { accessToken: string }).accessToken;
+    const newUserResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${newUserToken}` }, body: JSON.stringify({ body: 'New user comment' }) });
+    expect(newUserResponse.status).toBe(429);
+    await expect(newUserResponse.json()).resolves.toMatchObject({ code: 'new_user_cooldown_active' });
     const reactionResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/reactions/laugh`, { method: 'PUT', headers });
     expect(reactionResponse.status).toBe(200);
     await expect(reactionResponse.json()).resolves.toMatchObject({ counts: { laugh: 1 }, active: ['laugh'], tripleUsed: false });
@@ -112,7 +123,7 @@ describe('public comments API', () => {
     expect(listResponse.status).toBe(200);
     await expect(listResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, replyCount: 0, heat: 3 })]), nextCursor: null });
 
-    const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers, body: JSON.stringify({ body: 'First reply' }) });
+    const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers: reactorHeaders, body: JSON.stringify({ body: 'First reply' }) });
     expect(replyResponse.status).toBe(201);
     const reply = await replyResponse.json() as { id: string; rootCommentId: string };
     expect(reply.rootCommentId).toBe(comment.id);
@@ -120,7 +131,9 @@ describe('public comments API', () => {
     expect(branchResponse.status).toBe(200);
     await expect(branchResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]), nextCursor: null });
 
-    const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Second comment' }) });
+    const secondMemberTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'reporter-one' }) });
+    const secondMemberToken = (await secondMemberTokenResponse.json() as { accessToken: string }).accessToken;
+    const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${secondMemberToken}` }, body: JSON.stringify({ body: 'Second comment' }) });
     expect(secondCommentResponse.status).toBe(201);
     const secondComment = await secondCommentResponse.json() as { id: string };
     const firstPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1`, { headers });

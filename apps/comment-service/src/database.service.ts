@@ -1,6 +1,10 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { Pool, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+
+export interface DatabaseExecutor {
+  query<T extends QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<T>>;
+}
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -68,6 +72,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   query<T extends QueryResultRow>(text: string, values: unknown[] = []) {
     return this.pool.query<T>(text, values);
+  }
+
+  async transaction<T>(work: (database: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await work(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
