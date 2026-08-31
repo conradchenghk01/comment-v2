@@ -2,12 +2,13 @@ import { Body, Controller, Headers, HttpCode, Param, Post, Req, UseGuards } from
 import { IsIn } from 'class-validator';
 import { Request } from 'express';
 import { LocalMemberGuard, MemberIdentity } from './local-member.guard.js';
+import { PublicBlockGuard } from './public-block.guard.js';
 import { ReportReason, ReportsService } from './reports.service.js';
 
 class CreateReportDto { @IsIn(['spam', 'harassment', 'hate', 'misinformation', 'sexual_content', 'violence']) reasonCategory!: ReportReason; }
 
 @Controller('comments')
-@UseGuards(LocalMemberGuard)
+@UseGuards(LocalMemberGuard, PublicBlockGuard)
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 

@@ -19,9 +19,12 @@ import { MutesController } from './mutes.controller.js';
 import { MutesService } from './mutes.service.js';
 import { ReportsController } from './reports.controller.js';
 import { ReportsService } from './reports.service.js';
+import { BlocksController } from './blocks.controller.js';
+import { BlocksService } from './blocks.service.js';
+import { PublicBlockGuard } from './public-block.guard.js';
 
 @Module({
-  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService]
+  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController],
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService]
 })
 export class AppModule {}

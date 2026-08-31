@@ -4,12 +4,13 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-va
 import { Type } from 'class-transformer';
 import { CommentsService, CommentPage, CommentRecord, CommentSort } from './comments.service.js';
 import { LocalMemberGuard, MemberIdentity } from './local-member.guard.js';
+import { PublicBlockGuard } from './public-block.guard.js';
 
 class CreateCommentDto { @IsString() @MinLength(1) body!: string; }
 class ListCommentsDto { @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit = 20; @IsOptional() @IsIn(['relevant', 'newest', 'oldest']) sort: CommentSort = 'relevant'; @IsOptional() @IsString() cursor?: string; }
 
 @Controller()
-@UseGuards(LocalMemberGuard)
+@UseGuards(LocalMemberGuard, PublicBlockGuard)
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
 

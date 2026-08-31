@@ -66,6 +66,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         reason_category TEXT NOT NULL CHECK (reason_category IN ('spam', 'harassment', 'hate', 'misinformation', 'sexual_content', 'violence')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (application_id, reporter_id, comment_id)
       );
+      CREATE TABLE IF NOT EXISTS user_blocks (
+        application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL,
+        mode TEXT NOT NULL CHECK (mode IN ('normal', 'full')), source TEXT NOT NULL DEFAULT 'manual', expires_at TIMESTAMPTZ,
+        PRIMARY KEY (application_id, member_id)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {

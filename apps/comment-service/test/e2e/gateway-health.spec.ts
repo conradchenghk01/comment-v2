@@ -100,6 +100,13 @@ describe('public comments API', () => {
     const comment = await createResponse.json() as { id: string; status: string; body: string };
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
     expect(comment.id).toHaveLength(26);
+    const operatorHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}`, 'X-Application-Key': application.key };
+    const normalBlockResponse = await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'normal' }) });
+    expect(normalBlockResponse.status).toBe(204);
+    const blockedPostResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Blocked comment' }) });
+    expect(blockedPostResponse.status).toBe(403);
+    await expect(blockedPostResponse.json()).resolves.toMatchObject({ code: 'normal_blocked' });
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders })).status).toBe(204);
     const intervalResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Too soon' }) });
     expect(intervalResponse.status).toBe(429);
     await expect(intervalResponse.json()).resolves.toMatchObject({ code: 'comment_interval_active', details: { retryAfterSeconds: expect.any(Number) } });
@@ -171,5 +178,8 @@ describe('public comments API', () => {
     const deletedListResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest`, { headers });
     expect(deletedListResponse.status).toBe(200);
     await expect(deletedListResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, status: 'deleted', body: '此評論已被 01 管理員刪除', replyCount: 1 })]) });
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'full' }) })).status).toBe(204);
+    expect((await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers })).status).toBe(404);
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders })).status).toBe(204);
   });
 });

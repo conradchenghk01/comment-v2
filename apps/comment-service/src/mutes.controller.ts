@@ -1,10 +1,11 @@
 import { Controller, Delete, Headers, HttpCode, Param, Put, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { LocalMemberGuard, MemberIdentity } from './local-member.guard.js';
+import { PublicBlockGuard } from './public-block.guard.js';
 import { MutesService } from './mutes.service.js';
 
 @Controller('users')
-@UseGuards(LocalMemberGuard)
+@UseGuards(LocalMemberGuard, PublicBlockGuard)
 export class MutesController {
   constructor(private readonly mutes: MutesService) {}
 
