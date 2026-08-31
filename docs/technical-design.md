@@ -23,7 +23,7 @@ flowchart LR
   Gateway --> Logto[Logto JWKS]
 ```
 
-Kong is configured declaratively as `comment-api-gateway`. It owns only edge concerns: route forwarding, JWT/JWKS validation, CORS, request IDs, payload limits, and edge rate limiting. Kong has no domain logic and does not access PostgreSQL, Redis, or Yidun. `comment-service` emits the shared error envelope.
+Kong is configured declaratively as `comment-api-gateway`. It owns only edge concerns: route forwarding, JWT/JWKS validation, CORS, request IDs, payload limits, and coarse edge rate limiting. Kong uses its Redis-backed rate-limit plugin so limits remain correct across gateway instances. Kong has no domain logic and does not access PostgreSQL or Yidun. `comment-service` emits the shared error envelope.
 
 `comment-service` is a NestJS modular monolith for v1. It owns every domain decision, authorization against application state and blocks, transactions, cache invalidation, audit writes, and all PostgreSQL, Redis, and Yidun access.
 
@@ -143,7 +143,7 @@ Redis keys begin with `comment:{applicationKey}:` and include article key, sort,
 
 Writes, quota checks, moderation transitions, reactions, reports, and audit records use PostgreSQL primary transactions. Public and console list reads use the replica only when cache misses are safe to serve; immediately after a caller mutation, the response is returned directly rather than relying on replica visibility.
 
-V1 deploys no separate message queue. Redis is used only for caching and edge rate-limit counters; critical domain mutations remain synchronous and PostgreSQL-transactional. The `jobs` module is reserved for work that must outlive a request, such as asynchronous moderation, external synchronization retries, notifications, search indexing, analytics, cache warming, or large bulk operations. When that need arrives, use BullMQ backed by the existing Redis deployment before introducing a separate queue platform.
+V1 deploys no separate message queue. Redis is used for caching and Kong's shared edge rate-limit counters; critical domain mutations remain synchronous and PostgreSQL-transactional. User/application posting rules, including the one-minute interval, UTC+8 daily quota, and counting pending or rejected submissions, are enforced by `comment-service` within its primary-database transaction. The `jobs` module is reserved for work that must outlive a request, such as asynchronous moderation, external synchronization retries, notifications, search indexing, analytics, cache warming, or large bulk operations. When that need arrives, use BullMQ backed by the existing Redis deployment before introducing a separate queue platform.
 
 ## Test Plan And Delivery Order
 
