@@ -9,8 +9,8 @@ export interface AuditLogPage { items: AuditLog[]; page: number; pageSize: numbe
 export class AuditLogsService {
   constructor(private readonly database: DatabaseService) {}
 
-  async record(database: DatabaseExecutor, applicationKey: string, action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}): Promise<void> {
-    await database.query(`INSERT INTO audit_logs (id, application_id, action, target_type, target_id, metadata) SELECT $1, application.id, $3, $4, $5, $6::jsonb FROM applications application WHERE application.key = $2`, [ulid(), applicationKey, action, targetType, targetId, JSON.stringify(metadata)]);
+  async record(database: DatabaseExecutor, applicationKey: string, action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}, operatorId: string | null = null): Promise<void> {
+    await database.query(`INSERT INTO audit_logs (id, application_id, operator_id, action, target_type, target_id, metadata) SELECT $1, application.id, $3, $4, $5, $6, $7::jsonb FROM applications application WHERE application.key = $2`, [ulid(), applicationKey, operatorId, action, targetType, targetId, JSON.stringify(metadata)]);
   }
 
   async recordForApplicationId(database: DatabaseExecutor, applicationId: string, action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}): Promise<void> {

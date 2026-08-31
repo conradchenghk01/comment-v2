@@ -14,7 +14,7 @@ export class SensitiveWordsService {
     return result.rows;
   }
 
-  async add(applicationKey: string, word: string): Promise<SensitiveWord> {
+  async add(applicationKey: string, word: string, operatorId: string): Promise<SensitiveWord> {
     const normalizedWord = this.normalize(word);
     return this.database.transaction(async (database) => {
       const result = await database.query<SensitiveWord>(`INSERT INTO sensitive_words (id, application_id, normalized_word) SELECT $1, id, $3 FROM applications WHERE key = $2 ON CONFLICT (application_id, normalized_word) DO NOTHING RETURNING id, normalized_word AS word, created_at AS "createdAt"`, [ulid(), applicationKey, normalizedWord]);
@@ -23,16 +23,16 @@ export class SensitiveWordsService {
         if (application.rows.length === 0) throw new NotFoundException();
         throw new ConflictException({ code: 'sensitive_word_exists', message: 'Sensitive word already exists' });
       }
-      await this.auditLogs.record(database, applicationKey, 'sensitive_word.added', 'sensitive_word', result.rows[0].id, { word: normalizedWord });
+      await this.auditLogs.record(database, applicationKey, 'sensitive_word.added', 'sensitive_word', result.rows[0].id, { word: normalizedWord }, operatorId);
       return result.rows[0];
     });
   }
 
-  async remove(applicationKey: string, wordId: string): Promise<void> {
+  async remove(applicationKey: string, wordId: string, operatorId: string): Promise<void> {
     await this.database.transaction(async (database) => {
       const result = await database.query<{ word: string }>(`DELETE FROM sensitive_words word USING applications application WHERE word.application_id = application.id AND application.key = $1 AND word.id = $2 RETURNING word.normalized_word AS word`, [applicationKey, wordId]);
       if (result.rowCount !== 1) throw new NotFoundException();
-      await this.auditLogs.record(database, applicationKey, 'sensitive_word.removed', 'sensitive_word', wordId, { word: result.rows[0].word });
+      await this.auditLogs.record(database, applicationKey, 'sensitive_word.removed', 'sensitive_word', wordId, { word: result.rows[0].word }, operatorId);
     });
   }
 

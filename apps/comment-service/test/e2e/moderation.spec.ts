@@ -26,6 +26,6 @@ describe('console moderation API', () => {
     await expect(commentsResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: commentIds[0], status: 'published' }), expect.objectContaining({ id: commentIds[1], status: 'rejected' })]) });
     const auditResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs`, { headers });
     expect(auditResponse.status).toBe(200);
-    await expect(auditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'comment.approved', targetId: commentIds[0] }), expect.objectContaining({ action: 'comment.rejected', targetId: commentIds[1], metadata: { rejectionCode: 'spam' } })]), total: 2 });
+    await expect(auditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'comment.approved', targetId: commentIds[0], operatorId: 'local-operator' }), expect.objectContaining({ action: 'comment.rejected', targetId: commentIds[1], operatorId: 'local-operator', metadata: { rejectionCode: 'spam' } })]), total: 2 });
   });
 });

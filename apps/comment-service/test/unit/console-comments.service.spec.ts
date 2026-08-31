@@ -23,7 +23,7 @@ describe('ConsoleCommentsService', () => {
     const database = { query, transaction: async (work: (executor: never) => Promise<unknown>) => work({ query } as never) };
     const record = vi.fn().mockResolvedValue(undefined);
     const service = new ConsoleCommentsService(database as never, { record } as never);
-    await expect(service.bulkDeleteByArticle('app', 'article')).resolves.toEqual({ deletedCount: 3 });
-    expect(record).toHaveBeenCalledWith(expect.anything(), 'app', 'comments.bulk_deleted_by_article', 'article', 'article', { deletedCount: 3 });
+    await expect(service.bulkDeleteByArticle('app', 'article', 'operator-id')).resolves.toEqual({ deletedCount: 3 });
+    expect(record).toHaveBeenCalledWith(expect.anything(), 'app', 'comments.bulk_deleted_by_article', 'article', 'article', { deletedCount: 3 }, 'operator-id');
   });
 });

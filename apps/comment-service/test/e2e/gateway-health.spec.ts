@@ -72,6 +72,8 @@ describe('application API', () => {
     await expect(duplicateWordResponse.json()).resolves.toMatchObject({ code: 'sensitive_word_exists' });
     expect((await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words/${sensitiveWord.id}`, { method: 'DELETE', headers: settingsHeaders })).status).toBe(204);
     await expect((await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { headers: settingsHeaders })).json()).resolves.toEqual([]);
+    const sensitiveWordAuditResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs?pageSize=50`, { headers: settingsHeaders });
+    await expect(sensitiveWordAuditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'sensitive_word.added', operatorId: 'local-operator' }), expect.objectContaining({ action: 'sensitive_word.removed', operatorId: 'local-operator' })]) });
 
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { headers });
     expect(listResponse.status).toBe(200);

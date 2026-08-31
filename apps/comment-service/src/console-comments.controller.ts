@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { Type } from 'class-transformer';
 import { IsDateString, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ConsoleCommentFilters, ConsoleCommentPage, ConsoleCommentsService } from './console-comments.service.js';
@@ -28,17 +29,17 @@ export class ConsoleCommentsController {
 
   @Delete(':commentId')
   @HttpCode(204)
-  async delete(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string): Promise<void> {
-    await this.comments.delete(applicationKey, commentId);
+  async delete(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Req() request: Request & { operator: { accountId: string } }): Promise<void> {
+    await this.comments.delete(applicationKey, commentId, request.operator.accountId);
   }
 
   @Post('bulk-delete-by-article')
-  bulkDeleteByArticle(@Headers('x-application-key') applicationKey: string, @Body() body: BulkDeleteByArticleDto): Promise<{ deletedCount: number }> {
-    return this.comments.bulkDeleteByArticle(applicationKey, body.articleKey);
+  bulkDeleteByArticle(@Headers('x-application-key') applicationKey: string, @Body() body: BulkDeleteByArticleDto, @Req() request: Request & { operator: { accountId: string } }): Promise<{ deletedCount: number }> {
+    return this.comments.bulkDeleteByArticle(applicationKey, body.articleKey, request.operator.accountId);
   }
 
   @Post('bulk-delete-by-user')
-  bulkDeleteByUser(@Headers('x-application-key') applicationKey: string, @Body() body: BulkDeleteByUserDto): Promise<{ deletedCount: number }> {
-    return this.comments.bulkDeleteByUser(applicationKey, body.memberId);
+  bulkDeleteByUser(@Headers('x-application-key') applicationKey: string, @Body() body: BulkDeleteByUserDto, @Req() request: Request & { operator: { accountId: string } }): Promise<{ deletedCount: number }> {
+    return this.comments.bulkDeleteByUser(applicationKey, body.memberId, request.operator.accountId);
   }
 }
