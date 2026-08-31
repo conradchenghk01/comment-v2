@@ -12,6 +12,9 @@ class UpdateSettingsDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdOne?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdTwo?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdThree?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(8_760) autoBanDurationOneHours?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(8_760) autoBanDurationTwoHours?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(8_760) autoBanDurationThreeHours?: number;
 }
 
 @Controller('console/settings')

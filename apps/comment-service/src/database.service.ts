@@ -33,11 +33,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         yidun_moderation_enabled BOOLEAN NOT NULL DEFAULT false,
         auto_ban_threshold_one INTEGER NOT NULL DEFAULT 5,
         auto_ban_threshold_two INTEGER NOT NULL DEFAULT 10,
-        auto_ban_threshold_three INTEGER NOT NULL DEFAULT 20
+        auto_ban_threshold_three INTEGER NOT NULL DEFAULT 20,
+        auto_ban_duration_one_hours INTEGER NOT NULL DEFAULT 24,
+        auto_ban_duration_two_hours INTEGER NOT NULL DEFAULT 168,
+        auto_ban_duration_three_hours INTEGER NOT NULL DEFAULT 720
       );
       ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_one INTEGER NOT NULL DEFAULT 5;
       ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_two INTEGER NOT NULL DEFAULT 10;
       ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_three INTEGER NOT NULL DEFAULT 20;
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_duration_one_hours INTEGER NOT NULL DEFAULT 24;
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_duration_two_hours INTEGER NOT NULL DEFAULT 168;
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_duration_three_hours INTEGER NOT NULL DEFAULT 720;
       CREATE TABLE IF NOT EXISTS comments (
         id CHAR(26) PRIMARY KEY,
         application_id UUID NOT NULL REFERENCES applications(id),

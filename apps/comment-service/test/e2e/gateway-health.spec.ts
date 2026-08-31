@@ -57,10 +57,10 @@ describe('application API', () => {
     const settingsHeaders = { ...headers, 'X-Application-Key': application.key };
     const settingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { headers: settingsHeaders });
     expect(settingsResponse.status).toBe(200);
-    await expect(settingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 60, dailyCommentLimit: 20, newUserCooldownHours: 24, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20 });
-    const updateSettingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48 }) });
+    await expect(settingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 60, dailyCommentLimit: 20, newUserCooldownHours: 24, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20, autoBanDurationOneHours: 24, autoBanDurationTwoHours: 168, autoBanDurationThreeHours: 720 });
+    const updateSettingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, autoBanDurationOneHours: 12, autoBanDurationTwoHours: 48, autoBanDurationThreeHours: 96 }) });
     expect(updateSettingsResponse.status).toBe(200);
-    await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20 });
+    await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20, autoBanDurationOneHours: 12, autoBanDurationTwoHours: 48, autoBanDurationThreeHours: 96 });
     const sensitiveWordResponse = await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { method: 'POST', headers: settingsHeaders, body: JSON.stringify({ word: ' Example ' }) });
     expect(sensitiveWordResponse.status).toBe(201);
     const sensitiveWord = await sensitiveWordResponse.json() as { id: string; word: string };
