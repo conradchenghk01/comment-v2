@@ -274,6 +274,62 @@
         ]
       }
     },
+    "/v1/comments/batch": {
+      "post": {
+        "operationId": "CommentsController_batch",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchCommentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      }
+    },
+    "/v1/hot-articles": {
+      "get": {
+        "operationId": "CommentsController_hotArticles",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Comments"
+        ]
+      }
+    },
     "/v1/comments/{commentId}/reactions/{emoji}": {
       "put": {
         "operationId": "ReactionsController_toggle",
@@ -926,6 +982,10 @@
         "properties": {}
       },
       "CreateCommentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BatchCommentsDto": {
         "type": "object",
         "properties": {}
       },

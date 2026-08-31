@@ -57,4 +57,15 @@ describe('CommentsService', () => {
     expect(query.mock.calls[0][0]).toContain('ORDER BY heat DESC');
     expect(page).toMatchObject({ items: [rows[0]], nextCursor: expect.any(String) });
   });
+
+  it('US-9a: returns at most three root comment previews per requested article', async () => {
+    const row = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'author', authorName: 'Author', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0, commentCount: '1', laughCount: '2', cryCount: '0', cheerCount: '1', rank: '1' };
+    const batchService = new CommentsService({ query: vi.fn().mockResolvedValue({ rows: [row] }) } as never);
+    await expect(batchService.batch('app', 'member', ['article'])).resolves.toMatchObject({ items: [{ articleKey: 'article', commentCount: 1, reactionCounts: { laugh: 2, cry: 0, cheer: 1 }, comments: [expect.objectContaining({ id: 'comment' })] }] });
+  });
+
+  it('US-9b: ranks hot articles by visible comments and reactions', async () => {
+    const hotService = new CommentsService({ query: vi.fn().mockResolvedValue({ rows: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] }) } as never);
+    await expect(hotService.hotArticles('app')).resolves.toEqual({ items: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] });
+  });
 });

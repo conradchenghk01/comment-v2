@@ -134,6 +134,12 @@ describe('public comments API', () => {
     expect(replyResponse.status).toBe(201);
     const reply = await replyResponse.json() as { id: string; rootCommentId: string };
     expect(reply.rootCommentId).toBe(comment.id);
+    const batchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/batch`, { method: 'POST', headers, body: JSON.stringify({ articleKeys: [articleKey] }) });
+    expect(batchResponse.status).toBe(201);
+    await expect(batchResponse.json()).resolves.toMatchObject({ items: [{ articleKey, commentCount: 2, reactionCounts: { laugh: 1, cry: 1, cheer: 1 }, comments: [expect.objectContaining({ id: comment.id })] }] });
+    const hotArticlesResponse = await fetch(`${gatewayBaseUrl}/v1/hot-articles`, { headers });
+    expect(hotArticlesResponse.status).toBe(200);
+    await expect(hotArticlesResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ articleKey, commentCount: 2, reactionCount: 3, heat: 5 })] });
     for (const reporter of ['reporter-one', 'reporter-two', 'reporter-three', 'reporter-four', 'reporter-five']) {
       const reporterTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: reporter }) });
       const reporterToken = (await reporterTokenResponse.json() as { accessToken: string }).accessToken;

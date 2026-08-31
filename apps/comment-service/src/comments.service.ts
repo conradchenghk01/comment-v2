@@ -19,6 +19,8 @@ export interface CommentRecord {
 
 export type CommentSort = 'relevant' | 'newest' | 'oldest';
 export interface CommentPage { items: CommentRecord[]; nextCursor: string | null; }
+export interface BatchArticleComments { articleKey: string; comments: CommentRecord[]; commentCount: number; reactionCounts: Record<'laugh' | 'cry' | 'cheer', number>; }
+export interface HotArticle { articleKey: string; commentCount: number; reactionCount: number; heat: number; }
 interface CommentCursor { createdAt: string; id: string; heat?: number; }
 interface DatabaseCommentRecord extends CommentRecord { cursorCreatedAt?: string; }
 
@@ -94,6 +96,31 @@ export class CommentsService {
       values
     );
     return this.page(result.rows, limit, 'oldest');
+  }
+
+  async batch(applicationKey: string, memberId: string, articleKeys: string[]): Promise<{ items: BatchArticleComments[] }> {
+    const result = await this.database.query<CommentRecord & { articleKey: string; commentCount: string; laughCount: string; cryCount: string; cheerCount: string; rank: string }>(
+      `WITH scoped AS (SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = comment.id AND child.status = 'published') AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = comment.id) AS heat, row_number() OVER (PARTITION BY comment.article_key ORDER BY comment.created_at DESC, comment.id DESC)::text AS rank FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.root_comment_id IS NULL AND comment.status = 'published' AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = comment.application_id AND mute.member_id = $3 AND mute.muted_member_id = comment.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = comment.application_id AND report.reporter_id = $3 AND report.comment_id = comment.id)), totals AS (SELECT comment.article_key AS "articleKey", count(DISTINCT comment.id)::text AS "commentCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'laugh')::text AS "laughCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cry')::text AS "cryCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cheer')::text AS "cheerCount" FROM comments comment JOIN applications application ON application.id = comment.application_id LEFT JOIN comment_reactions reaction ON reaction.comment_id = comment.id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.status = 'published' GROUP BY comment.article_key) SELECT scoped.*, totals."commentCount", totals."laughCount", totals."cryCount", totals."cheerCount" FROM scoped JOIN totals USING ("articleKey") WHERE scoped.rank::integer <= 3 ORDER BY scoped."articleKey", scoped."createdAt" DESC, scoped.id DESC`,
+      [applicationKey, articleKeys, memberId]
+    );
+    const byArticle = new Map<string, BatchArticleComments>();
+    for (const articleKey of articleKeys) byArticle.set(articleKey, { articleKey, comments: [], commentCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 } });
+    for (const row of result.rows) {
+      const item = byArticle.get(row.articleKey)!;
+      item.commentCount = Number(row.commentCount);
+      item.reactionCounts = { laugh: Number(row.laughCount), cry: Number(row.cryCount), cheer: Number(row.cheerCount) };
+      const { commentCount: _commentCount, laughCount: _laughCount, cryCount: _cryCount, cheerCount: _cheerCount, rank: _rank, ...comment } = row;
+      item.comments.push(comment);
+    }
+    return { items: articleKeys.map((articleKey) => byArticle.get(articleKey)!) };
+  }
+
+  async hotArticles(applicationKey: string, limit = 20): Promise<{ items: HotArticle[] }> {
+    const result = await this.database.query<HotArticle>(
+      `SELECT comment.article_key AS "articleKey", count(DISTINCT comment.id)::integer AS "commentCount", count(reaction.emoji)::integer AS "reactionCount", (count(DISTINCT comment.id) + count(reaction.emoji))::integer AS heat FROM comments comment JOIN applications application ON application.id = comment.application_id LEFT JOIN comment_reactions reaction ON reaction.comment_id = comment.id WHERE application.key = $1 AND application.status = 'active' AND comment.status = 'published' GROUP BY comment.article_key ORDER BY heat DESC, "articleKey" ASC LIMIT $2`,
+      [applicationKey, limit]
+    );
+    return { items: result.rows };
   }
 
   private page(rows: DatabaseCommentRecord[], limit: number, sort: CommentSort): CommentPage {
