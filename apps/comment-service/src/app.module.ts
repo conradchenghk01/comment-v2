@@ -22,9 +22,10 @@ import { ReportsService } from './reports.service.js';
 import { BlocksController } from './blocks.controller.js';
 import { BlocksService } from './blocks.service.js';
 import { PublicBlockGuard } from './public-block.guard.js';
+import { AutoBanService } from './auto-ban.service.js';
 
 @Module({
   controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService]
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService, AutoBanService]
 })
 export class AppModule {}

@@ -57,10 +57,10 @@ describe('application API', () => {
     const settingsHeaders = { ...headers, 'X-Application-Key': application.key };
     const settingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { headers: settingsHeaders });
     expect(settingsResponse.status).toBe(200);
-    await expect(settingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 60, dailyCommentLimit: 20, newUserCooldownHours: 24, yidunModerationEnabled: false });
+    await expect(settingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 60, dailyCommentLimit: 20, newUserCooldownHours: 24, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20 });
     const updateSettingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48 }) });
     expect(updateSettingsResponse.status).toBe(200);
-    await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false });
+    await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20 });
 
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { headers });
     expect(listResponse.status).toBe(200);
@@ -134,6 +134,15 @@ describe('public comments API', () => {
     expect(replyResponse.status).toBe(201);
     const reply = await replyResponse.json() as { id: string; rootCommentId: string };
     expect(reply.rootCommentId).toBe(comment.id);
+    for (const reporter of ['reporter-one', 'reporter-two', 'reporter-three', 'reporter-four', 'reporter-five']) {
+      const reporterTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: reporter }) });
+      const reporterToken = (await reporterTokenResponse.json() as { accessToken: string }).accessToken;
+      const reportResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${reply.id}/reports`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${reporterToken}` }, body: JSON.stringify({ reasonCategory: 'spam' }) });
+      expect(reportResponse.status).toBe(204);
+    }
+    const autoBlockedResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: reactorHeaders, body: JSON.stringify({ body: 'Auto blocked comment' }) });
+    expect(autoBlockedResponse.status).toBe(403);
+    await expect(autoBlockedResponse.json()).resolves.toMatchObject({ code: 'normal_blocked' });
     const branchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
     expect(branchResponse.status).toBe(200);
     await expect(branchResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]), nextCursor: null });

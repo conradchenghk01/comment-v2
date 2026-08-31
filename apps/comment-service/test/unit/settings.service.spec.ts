@@ -8,7 +8,7 @@ describe('SettingsService', () => {
     const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [settings] });
     const service = new SettingsService({ query } as never);
     await expect(service.update('application-key', { commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48 })).resolves.toEqual(settings);
-    expect(query.mock.calls[0]?.[1]).toEqual(['application-key', 120, 10, 48, null]);
+    expect(query.mock.calls[0]?.[1]).toEqual(['application-key', 120, 10, 48, null, null, null, null]);
   });
 
   it('US-39: rejects settings access for an unknown application', async () => {

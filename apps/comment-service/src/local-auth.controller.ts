@@ -14,7 +14,7 @@ class LocalLoginDto {
   password!: string;
 }
 
-const localMemberKeys = ['author', 'reactor', 'reporter-one', 'reporter-two', 'reporter-three', 'new-user'] as const;
+const localMemberKeys = ['author', 'reactor', 'reporter-one', 'reporter-two', 'reporter-three', 'reporter-four', 'reporter-five', 'new-user'] as const;
 type LocalMemberKey = (typeof localMemberKeys)[number];
 
 class IssueMemberTokenDto {
@@ -28,6 +28,8 @@ const localMembers = {
   'reporter-one': { accountId: 'local-reporter-1', name: 'Reporter One', avaterUrl: 'https://example.test/avatar/reporter-1.png', createdAt: '2026-01-01T00:00:00.000Z' },
   'reporter-two': { accountId: 'local-reporter-2', name: 'Reporter Two', avaterUrl: 'https://example.test/avatar/reporter-2.png', createdAt: '2026-01-01T00:00:00.000Z' },
   'reporter-three': { accountId: 'local-reporter-3', name: 'Reporter Three', avaterUrl: 'https://example.test/avatar/reporter-3.png', createdAt: '2026-01-01T00:00:00.000Z' },
+  'reporter-four': { accountId: 'local-reporter-4', name: 'Reporter Four', avaterUrl: 'https://example.test/avatar/reporter-4.png', createdAt: '2026-01-01T00:00:00.000Z' },
+  'reporter-five': { accountId: 'local-reporter-5', name: 'Reporter Five', avaterUrl: 'https://example.test/avatar/reporter-5.png', createdAt: '2026-01-01T00:00:00.000Z' },
   'new-user': { accountId: 'local-new-user', name: 'New User', avaterUrl: 'https://example.test/avatar/new-user.png', createdAt: '2026-08-31T00:00:00.000Z' }
 } as const;
 

@@ -9,6 +9,9 @@ class UpdateSettingsDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) dailyCommentLimit?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(8_760) newUserCooldownHours?: number;
   @IsOptional() @IsBoolean() yidunModerationEnabled?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdOne?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdTwo?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10_000) autoBanThresholdThree?: number;
 }
 
 @Controller('console/settings')

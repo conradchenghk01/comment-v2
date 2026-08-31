@@ -30,8 +30,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         comment_interval_seconds INTEGER NOT NULL DEFAULT 60,
         daily_comment_limit INTEGER NOT NULL DEFAULT 20,
         new_user_cooldown_hours INTEGER NOT NULL DEFAULT 24,
-        yidun_moderation_enabled BOOLEAN NOT NULL DEFAULT false
+        yidun_moderation_enabled BOOLEAN NOT NULL DEFAULT false,
+        auto_ban_threshold_one INTEGER NOT NULL DEFAULT 5,
+        auto_ban_threshold_two INTEGER NOT NULL DEFAULT 10,
+        auto_ban_threshold_three INTEGER NOT NULL DEFAULT 20
       );
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_one INTEGER NOT NULL DEFAULT 5;
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_two INTEGER NOT NULL DEFAULT 10;
+      ALTER TABLE application_settings ADD COLUMN IF NOT EXISTS auto_ban_threshold_three INTEGER NOT NULL DEFAULT 20;
       CREATE TABLE IF NOT EXISTS comments (
         id CHAR(26) PRIMARY KEY,
         application_id UUID NOT NULL REFERENCES applications(id),
@@ -70,6 +76,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL,
         mode TEXT NOT NULL CHECK (mode IN ('normal', 'full')), source TEXT NOT NULL DEFAULT 'manual', expires_at TIMESTAMPTZ,
         PRIMARY KEY (application_id, member_id)
+      );
+      CREATE TABLE IF NOT EXISTS user_offenses (
+        application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL,
+        trigger_count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (application_id, member_id)
       );
     `);
 
