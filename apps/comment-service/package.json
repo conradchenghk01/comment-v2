@@ -4,7 +4,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node dist/openapi.js",
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --config vitest.config.ts --exclude test/e2e/**",
+    "test": "vitest run --config vitest.config.ts --exclude 'test/e2e/**'",
     "test:e2e": "vitest run --config vitest.config.ts test/e2e",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js"
