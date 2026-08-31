@@ -22,7 +22,6 @@ export class ReactionsService {
       if (error instanceof NotFoundException) throw error;
       throw new ConflictException({ code: 'triple_reaction_already_used' });
     }
-    for (const emoji of ['laugh', 'cry', 'cheer'] as Emoji[]) await this.database.query(`INSERT INTO comment_reactions (application_id, comment_id, member_id, emoji) SELECT id,$2,$3,$4 FROM applications WHERE key=$1 ON CONFLICT DO NOTHING`, [applicationKey, commentId, memberId, emoji]);
     return this.state(applicationKey, commentId, memberId);
   }
   private async state(applicationKey: string, commentId: string, memberId: string): Promise<ReactionState> {
