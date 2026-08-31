@@ -101,6 +101,16 @@ describe('public comments API', () => {
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
     expect(comment.id).toHaveLength(26);
     const operatorHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}`, 'X-Application-Key': application.key };
+    const origin = 'https://comments.example.test';
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/origins`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ origin }) })).status).toBe(204);
+    const allowedOriginResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers: { ...headers, Origin: origin } });
+    expect(allowedOriginResponse.status).toBe(200);
+    expect(allowedOriginResponse.headers.get('access-control-allow-origin')).toBe(origin);
+    const preflightResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' } });
+    expect(preflightResponse.status).toBe(204);
+    const rejectedOriginResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers: { ...headers, Origin: 'https://untrusted.example.test' } });
+    expect(rejectedOriginResponse.status).toBe(403);
+    await expect(rejectedOriginResponse.json()).resolves.toMatchObject({ code: 'origin_not_allowed' });
     const normalBlockResponse = await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'normal' }) });
     expect(normalBlockResponse.status).toBe(204);
     const blockedPostResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Blocked comment' }) });

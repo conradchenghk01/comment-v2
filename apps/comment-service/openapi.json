@@ -946,6 +946,91 @@
           "ConsoleUsers"
         ]
       }
+    },
+    "/v1/console/origins": {
+      "get": {
+        "operationId": "OriginsController_list",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Origins"
+        ]
+      },
+      "put": {
+        "operationId": "OriginsController_add",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Origins"
+        ]
+      },
+      "delete": {
+        "operationId": "OriginsController_remove",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Origins"
+        ]
+      }
     }
   },
   "info": {
@@ -1010,6 +1095,10 @@
         "properties": {}
       },
       "RejectCommentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "OriginDto": {
         "type": "object",
         "properties": {}
       }

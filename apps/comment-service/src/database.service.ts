@@ -91,6 +91,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS audit_logs_application_created_idx ON audit_logs (application_id, created_at DESC, id DESC);
+      CREATE TABLE IF NOT EXISTS application_origins (
+        application_id UUID NOT NULL REFERENCES applications(id), origin TEXT NOT NULL,
+        PRIMARY KEY (application_id, origin)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {
