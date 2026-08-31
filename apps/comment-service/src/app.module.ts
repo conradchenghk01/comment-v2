@@ -11,9 +11,11 @@ import { CommentsController } from './comments.controller.js';
 import { CommentsService } from './comments.service.js';
 import { ReactionsController } from './reactions.controller.js';
 import { ReactionsService } from './reactions.service.js';
+import { SettingsController } from './settings.controller.js';
+import { SettingsService } from './settings.service.js';
 
 @Module({
-  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, ApplicationsService, CommentsService, ReactionsService]
+  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController],
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService]
 })
 export class AppModule {}

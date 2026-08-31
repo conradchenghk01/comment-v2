@@ -54,6 +54,13 @@ describe('application API', () => {
     const application = await createResponse.json() as { key: string; slug: string; status: string };
     expect(application).toMatchObject({ slug, status: 'active' });
     expect(application.key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    const settingsHeaders = { ...headers, 'X-Application-Key': application.key };
+    const settingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { headers: settingsHeaders });
+    expect(settingsResponse.status).toBe(200);
+    await expect(settingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 60, dailyCommentLimit: 20, newUserCooldownHours: 24, yidunModerationEnabled: false });
+    const updateSettingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48 }) });
+    expect(updateSettingsResponse.status).toBe(200);
+    await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false });
 
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { headers });
     expect(listResponse.status).toBe(200);
