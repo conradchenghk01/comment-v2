@@ -16,8 +16,8 @@ export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
 
   @Post('articles/:articleKey/comments')
-  create(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
-    return this.comments.create(applicationKey, articleKey, body.body, request.member);
+  create(@Headers('x-application-key') applicationKey: string, @Headers('idempotency-key') idempotencyKey: string | undefined, @Param('articleKey') articleKey: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
+    return this.comments.create(applicationKey, articleKey, body.body, request.member, idempotencyKey);
   }
 
   @Get('articles/:articleKey/comments')
@@ -26,8 +26,8 @@ export class CommentsController {
   }
 
   @Post('comments/:commentId/replies')
-  reply(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
-    return this.comments.reply(applicationKey, commentId, body.body, request.member);
+  reply(@Headers('x-application-key') applicationKey: string, @Headers('idempotency-key') idempotencyKey: string | undefined, @Param('commentId') commentId: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
+    return this.comments.reply(applicationKey, commentId, body.body, request.member, idempotencyKey);
   }
 
   @Get('comments/:commentId/branch')

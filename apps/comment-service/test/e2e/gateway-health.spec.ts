@@ -95,11 +95,15 @@ describe('public comments API', () => {
     const memberToken = (await memberResponse.json() as { accessToken: string }).accessToken;
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}`, 'X-Application-Key': application.key };
     const articleKey = `article-${Date.now()}`;
-    const createResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'First comment' }) });
+    const idempotencyKey = `comment-${Date.now()}`;
+    const createResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: { ...headers, 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ body: 'First comment' }) });
     expect(createResponse.status).toBe(201);
     const comment = await createResponse.json() as { id: string; status: string; body: string };
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
     expect(comment.id).toHaveLength(26);
+    const replayResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: { ...headers, 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ body: 'First comment' }) });
+    expect(replayResponse.status).toBe(201);
+    await expect(replayResponse.json()).resolves.toMatchObject({ id: comment.id, body: 'First comment' });
     const operatorHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}`, 'X-Application-Key': application.key };
     const origin = 'https://comments.example.test';
     expect((await fetch(`${gatewayBaseUrl}/v1/console/origins`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ origin }) })).status).toBe(204);
@@ -140,10 +144,14 @@ describe('public comments API', () => {
     expect(listResponse.status).toBe(200);
     await expect(listResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, replyCount: 0, heat: 3 })]), nextCursor: null });
 
-    const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers: reactorHeaders, body: JSON.stringify({ body: 'First reply' }) });
+    const replyIdempotencyKey = `reply-${Date.now()}`;
+    const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers: { ...reactorHeaders, 'Idempotency-Key': replyIdempotencyKey }, body: JSON.stringify({ body: 'First reply' }) });
     expect(replyResponse.status).toBe(201);
     const reply = await replyResponse.json() as { id: string; rootCommentId: string };
     expect(reply.rootCommentId).toBe(comment.id);
+    const replyReplayResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers: { ...reactorHeaders, 'Idempotency-Key': replyIdempotencyKey }, body: JSON.stringify({ body: 'First reply' }) });
+    expect(replyReplayResponse.status).toBe(201);
+    await expect(replyReplayResponse.json()).resolves.toMatchObject({ id: reply.id, rootCommentId: comment.id });
     const batchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/batch`, { method: 'POST', headers, body: JSON.stringify({ articleKeys: [articleKey] }) });
     expect(batchResponse.status).toBe(201);
     await expect(batchResponse.json()).resolves.toMatchObject({ items: [{ articleKey, commentCount: 2, reactionCounts: { laugh: 1, cry: 1, cheer: 1 }, comments: [expect.objectContaining({ id: comment.id })] }] });

@@ -95,6 +95,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), origin TEXT NOT NULL,
         PRIMARY KEY (application_id, origin)
       );
+      CREATE TABLE IF NOT EXISTS comment_idempotency_keys (
+        application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL, key TEXT NOT NULL,
+        comment_id CHAR(26) NOT NULL REFERENCES comments(id), PRIMARY KEY (application_id, member_id, key)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {

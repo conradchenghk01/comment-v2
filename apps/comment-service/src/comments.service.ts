@@ -28,9 +28,11 @@ interface DatabaseCommentRecord extends CommentRecord { cursorCreatedAt?: string
 export class CommentsService {
   constructor(private readonly database: DatabaseService) {}
 
-  async create(applicationKey: string, articleKey: string, body: string, member: MemberIdentity): Promise<CommentRecord> {
+  async create(applicationKey: string, articleKey: string, body: string, member: MemberIdentity, idempotencyKey?: string): Promise<CommentRecord> {
     this.validateBody(body);
-    return this.withTransaction(async (database) => {
+    try { return await this.withTransaction(async (database) => {
+      const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
+      if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
       const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, author_id, author_name, author_avatar_url, body, status)
@@ -39,8 +41,9 @@ export class CommentsService {
       [ulid(), applicationKey, articleKey, member.accountId, member.name, member.avatarUrl, body]
       );
       if (result.rowCount !== 1) throw new NotFoundException();
+      await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
       return result.rows[0];
-    });
+    }); } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
   }
 
   async list(applicationKey: string, articleKey: string, memberId: string, sort: CommentSort = 'relevant', cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -65,9 +68,11 @@ export class CommentsService {
     return this.page(result.rows, limit, sort);
   }
 
-  async reply(applicationKey: string, rootCommentId: string, body: string, member: MemberIdentity): Promise<CommentRecord> {
+  async reply(applicationKey: string, rootCommentId: string, body: string, member: MemberIdentity, idempotencyKey?: string): Promise<CommentRecord> {
     this.validateBody(body);
-    return this.withTransaction(async (database) => {
+    try { return await this.withTransaction(async (database) => {
+      const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
+      if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
       const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, root_comment_id, author_id, author_name, author_avatar_url, body, status)
@@ -78,8 +83,9 @@ export class CommentsService {
       [ulid(), applicationKey, rootCommentId, member.accountId, member.name, member.avatarUrl, body]
       );
       if (result.rowCount !== 1) throw new NotFoundException();
+      await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
       return result.rows[0];
-    });
+    }); } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
   }
 
   async branch(applicationKey: string, rootCommentId: string, memberId: string, cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -171,6 +177,24 @@ export class CommentsService {
 
   private withTransaction<T>(work: (database: DatabaseExecutor) => Promise<T>): Promise<T> {
     return this.database.transaction(work);
+  }
+
+  private async replay(database: DatabaseExecutor, applicationKey: string, memberId: string, key: string | undefined): Promise<CommentRecord | undefined> {
+    if (!key) return undefined;
+    const result = await database.query<CommentRecord>(`SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat FROM comment_idempotency_keys idempotency JOIN applications application ON application.id = idempotency.application_id JOIN comments comment ON comment.id = idempotency.comment_id WHERE application.key = $1 AND idempotency.member_id = $2 AND idempotency.key = $3`, [applicationKey, memberId, key]);
+    return result.rows[0];
+  }
+
+  private async remember(database: DatabaseExecutor, applicationKey: string, memberId: string, key: string | undefined, commentId: string): Promise<void> {
+    if (!key) return;
+    await database.query(`INSERT INTO comment_idempotency_keys (application_id, member_id, key, comment_id) SELECT id, $2, $3, $4 FROM applications WHERE key = $1`, [applicationKey, memberId, key, commentId]);
+  }
+
+  private async replayAfterConflict(applicationKey: string, memberId: string, key: string | undefined, error: unknown): Promise<CommentRecord> {
+    if (!key || !(typeof error === 'object' && error !== null && 'code' in error && error.code === '23505')) throw error;
+    const replay = await this.replay(this.database, applicationKey, memberId, key);
+    if (!replay) throw error;
+    return replay;
   }
 
   private rateLimitExceeded(response: Record<string, unknown>): HttpException {

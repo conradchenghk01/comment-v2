@@ -68,4 +68,12 @@ describe('CommentsService', () => {
     const hotService = new CommentsService({ query: vi.fn().mockResolvedValue({ rows: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] }) } as never);
     await expect(hotService.hotArticles('app')).resolves.toEqual({ items: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] });
   });
+
+  it('US-10a: replays an idempotent submission before consuming quota', async () => {
+    const replay = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'member', authorName: 'Member', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0 };
+    const query = vi.fn().mockResolvedValue({ rows: [replay] });
+    const idempotentService = new CommentsService({ query, transaction: async (work: (database: never) => Promise<unknown>) => work({ query } as never) } as never);
+    await expect(idempotentService.create('app', 'article', 'Comment', { accountId: 'member', name: 'Member', avatarUrl: 'avatar', createdAt: '2026-01-01T00:00:00Z' }, 'key')).resolves.toEqual(replay);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
 });
