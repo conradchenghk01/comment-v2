@@ -144,5 +144,15 @@ describe('public comments API', () => {
     const secondPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`, { headers });
     expect(secondPageResponse.status).toBe(200);
     await expect(secondPageResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ id: secondComment.id })], nextCursor: null });
+
+    const consoleHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}`, 'X-Application-Key': application.key };
+    const searchResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments?articleKey=${encodeURIComponent(articleKey)}&status=published`, { headers: consoleHeaders });
+    expect(searchResponse.status).toBe(200);
+    await expect(searchResponse.json()).resolves.toMatchObject({ page: 1, pageSize: 20, total: 3, items: expect.arrayContaining([expect.objectContaining({ id: comment.id, body: 'First comment' })]) });
+    const deleteResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments/${comment.id}`, { method: 'DELETE', headers: consoleHeaders });
+    expect(deleteResponse.status).toBe(204);
+    const deletedListResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest`, { headers });
+    expect(deletedListResponse.status).toBe(200);
+    await expect(deletedListResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, status: 'deleted', body: '此評論已被 01 管理員刪除', replyCount: 1 })]) });
   });
 });
