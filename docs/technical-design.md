@@ -52,6 +52,7 @@ Membership JWT issuer, audience, JWKS URL, and signing algorithm are required de
 | `console` | Search, bulk deletion, operator settings, reports, and user statistics. |
 | `audit` | Immutable records for operator and automatic moderation actions. |
 | `cache` | Redis reads and invalidation for public list and aggregate endpoints. |
+| `jobs` | A future asynchronous-work boundary; no queue worker is deployed in v1. |
 
 ## Persistence Model
 
@@ -141,6 +142,8 @@ Browser requests to the public API are accepted only from exact scheme-host-port
 Redis keys begin with `comment:{applicationKey}:` and include article key, sort, and cursor-independent first-page variant. Cache the published root-comment first page, emoji counters, batch responses, and hot article responses for 30 seconds. Any comment lifecycle change, reaction mutation, report-induced hide state, or relevant settings change invalidates the associated application/article keys.
 
 Writes, quota checks, moderation transitions, reactions, reports, and audit records use PostgreSQL primary transactions. Public and console list reads use the replica only when cache misses are safe to serve; immediately after a caller mutation, the response is returned directly rather than relying on replica visibility.
+
+V1 deploys no separate message queue. Redis is used only for caching and edge rate-limit counters; critical domain mutations remain synchronous and PostgreSQL-transactional. The `jobs` module is reserved for work that must outlive a request, such as asynchronous moderation, external synchronization retries, notifications, search indexing, analytics, cache warming, or large bulk operations. When that need arrives, use BullMQ backed by the existing Redis deployment before introducing a separate queue platform.
 
 ## Test Plan And Delivery Order
 
