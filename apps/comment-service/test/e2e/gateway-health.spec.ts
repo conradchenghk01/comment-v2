@@ -130,6 +130,15 @@ describe('public comments API', () => {
     const branchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
     expect(branchResponse.status).toBe(200);
     await expect(branchResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]), nextCursor: null });
+    const muteResponse = await fetch(`${gatewayBaseUrl}/v1/users/local-reactor/mute`, { method: 'PUT', headers });
+    expect(muteResponse.status).toBe(204);
+    const mutedBranchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
+    expect(mutedBranchResponse.status).toBe(200);
+    await expect(mutedBranchResponse.json()).resolves.toEqual({ items: [], nextCursor: null });
+    const unmuteResponse = await fetch(`${gatewayBaseUrl}/v1/users/local-reactor/mute`, { method: 'DELETE', headers });
+    expect(unmuteResponse.status).toBe(204);
+    const restoredBranchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
+    await expect(restoredBranchResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ id: reply.id })] });
 
     const secondMemberTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'reporter-one' }) });
     const secondMemberToken = (await secondMemberTokenResponse.json() as { accessToken: string }).accessToken;

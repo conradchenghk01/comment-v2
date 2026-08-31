@@ -19,8 +19,8 @@ export class CommentsController {
   }
 
   @Get('articles/:articleKey/comments')
-  list(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Query() query: ListCommentsDto): Promise<CommentPage> {
-    return this.comments.list(applicationKey, articleKey, query.sort, query.cursor, query.limit);
+  list(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Query() query: ListCommentsDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentPage> {
+    return this.comments.list(applicationKey, articleKey, request.member.accountId, query.sort, query.cursor, query.limit);
   }
 
   @Post('comments/:commentId/replies')
@@ -29,7 +29,7 @@ export class CommentsController {
   }
 
   @Get('comments/:commentId/branch')
-  branch(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Query() query: ListCommentsDto): Promise<CommentPage> {
-    return this.comments.branch(applicationKey, commentId, query.cursor, query.limit);
+  branch(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Query() query: ListCommentsDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentPage> {
+    return this.comments.branch(applicationKey, commentId, request.member.accountId, query.cursor, query.limit);
   }
 }

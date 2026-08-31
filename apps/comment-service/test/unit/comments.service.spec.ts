@@ -53,7 +53,7 @@ describe('CommentsService', () => {
     const rows = [{ id: 'first', createdAt: '2026-01-01T00:00:00.000Z', replyCount: 1, heat: 3 }, { id: 'second', createdAt: '2026-01-01T00:00:01.000Z', replyCount: 0, heat: 2 }];
     const query = vi.fn().mockResolvedValue({ rows });
     const listService = new CommentsService({ query } as never);
-    const page = await listService.list('app', 'article', 'relevant', undefined, 1);
+    const page = await listService.list('app', 'article', 'member', 'relevant', undefined, 1);
     expect(query.mock.calls[0][0]).toContain('ORDER BY heat DESC');
     expect(page).toMatchObject({ items: [rows[0]], nextCursor: expect.any(String) });
   });

@@ -15,9 +15,11 @@ import { SettingsController } from './settings.controller.js';
 import { SettingsService } from './settings.service.js';
 import { ConsoleCommentsController } from './console-comments.controller.js';
 import { ConsoleCommentsService } from './console-comments.service.js';
+import { MutesController } from './mutes.controller.js';
+import { MutesService } from './mutes.service.js';
 
 @Module({
-  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService]
+  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController],
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService]
 })
 export class AppModule {}

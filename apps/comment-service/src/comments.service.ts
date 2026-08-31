@@ -41,23 +41,23 @@ export class CommentsService {
     });
   }
 
-  async list(applicationKey: string, articleKey: string, sort: CommentSort = 'relevant', cursor: string | undefined, limit = 20): Promise<CommentPage> {
+  async list(applicationKey: string, articleKey: string, memberId: string, sort: CommentSort = 'relevant', cursor: string | undefined, limit = 20): Promise<CommentPage> {
     const parsedCursor = this.parseCursor(cursor, sort);
     const orderBy = sort === 'relevant' ? 'heat DESC, "createdAt" DESC, id DESC' : sort === 'newest' ? '"createdAt" DESC, id DESC' : '"createdAt" ASC, id ASC';
-    const values: unknown[] = [applicationKey, articleKey];
+    const values: unknown[] = [applicationKey, articleKey, memberId];
     let cursorClause = '';
     if (parsedCursor) {
       if (sort === 'relevant') {
         values.push(parsedCursor.heat, parsedCursor.createdAt, parsedCursor.id);
-        cursorClause = 'AND (heat, "createdAt", id) < ($3, $4, $5)';
+        cursorClause = 'AND (heat, "createdAt", id) < ($4, $5, $6)';
       } else {
         values.push(parsedCursor.createdAt, parsedCursor.id);
-        cursorClause = sort === 'newest' ? 'AND ("createdAt", id) < ($3, $4)' : 'AND ("createdAt", id) > ($3, $4)';
+        cursorClause = sort === 'newest' ? 'AND ("createdAt", id) < ($4, $5)' : 'AND ("createdAt", id) > ($4, $5)';
       }
     }
     values.push(limit + 1);
     const result = await this.database.query<DatabaseCommentRecord>(
-      `WITH roots AS (SELECT c.id, c.article_key AS "articleKey", c.root_comment_id AS "rootCommentId", c.author_id AS "authorId", c.author_name AS "authorName", c.author_avatar_url AS "authorAvatarUrl", CASE WHEN c.status = 'deleted' THEN '此評論已被 01 管理員刪除' ELSE c.body END AS body, c.status, c.created_at AS "createdAt", c.created_at::text AS "cursorCreatedAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = c.id AND child.status = 'published') AS "replyCount", CASE WHEN c.status = 'deleted' THEN 0 ELSE (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = c.id) END AS reactions FROM comments c JOIN applications a ON a.id = c.application_id WHERE a.key = $1 AND a.status = 'active' AND c.article_key = $2 AND c.root_comment_id IS NULL AND c.status IN ('published', 'deleted')), stats AS (SELECT roots.*, ("replyCount" + reactions) AS heat FROM roots) SELECT id, "articleKey", "rootCommentId", "authorId", "authorName", "authorAvatarUrl", body, status, "createdAt", "cursorCreatedAt", "replyCount", heat FROM stats WHERE true ${cursorClause} ORDER BY ${orderBy} LIMIT $${values.length}`,
+      `WITH roots AS (SELECT c.id, c.article_key AS "articleKey", c.root_comment_id AS "rootCommentId", c.author_id AS "authorId", c.author_name AS "authorName", c.author_avatar_url AS "authorAvatarUrl", CASE WHEN c.status = 'deleted' THEN '此評論已被 01 管理員刪除' ELSE c.body END AS body, c.status, c.created_at AS "createdAt", c.created_at::text AS "cursorCreatedAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = c.id AND child.status = 'published') AS "replyCount", CASE WHEN c.status = 'deleted' THEN 0 ELSE (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = c.id) END AS reactions FROM comments c JOIN applications a ON a.id = c.application_id WHERE a.key = $1 AND a.status = 'active' AND c.article_key = $2 AND c.root_comment_id IS NULL AND c.status IN ('published', 'deleted') AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = c.application_id AND mute.member_id = $3 AND mute.muted_member_id = c.author_id)), stats AS (SELECT roots.*, ("replyCount" + reactions) AS heat FROM roots) SELECT id, "articleKey", "rootCommentId", "authorId", "authorName", "authorAvatarUrl", body, status, "createdAt", "cursorCreatedAt", "replyCount", heat FROM stats WHERE true ${cursorClause} ORDER BY ${orderBy} LIMIT $${values.length}`,
       values
     );
     return this.page(result.rows, limit, sort);
@@ -80,16 +80,16 @@ export class CommentsService {
     });
   }
 
-  async branch(applicationKey: string, rootCommentId: string, cursor: string | undefined, limit = 20): Promise<CommentPage> {
+  async branch(applicationKey: string, rootCommentId: string, memberId: string, cursor: string | undefined, limit = 20): Promise<CommentPage> {
     const parsedCursor = this.parseCursor(cursor, 'oldest');
-    const values: unknown[] = [applicationKey, rootCommentId];
+    const values: unknown[] = [applicationKey, rootCommentId, memberId];
     let cursorClause = '';
-    if (parsedCursor) { values.push(parsedCursor.createdAt, parsedCursor.id); cursorClause = 'AND (child.created_at, child.id) > ($3, $4)'; }
+    if (parsedCursor) { values.push(parsedCursor.createdAt, parsedCursor.id); cursorClause = 'AND (child.created_at, child.id) > ($4, $5)'; }
     values.push(limit + 1);
     const result = await this.database.query<DatabaseCommentRecord>(
       `SELECT child.id, child.article_key AS "articleKey", child.root_comment_id AS "rootCommentId", child.author_id AS "authorId", child.author_name AS "authorName", child.author_avatar_url AS "authorAvatarUrl", child.body, child.status, child.created_at AS "createdAt", child.created_at::text AS "cursorCreatedAt", 0::integer AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = child.id) AS heat
        FROM comments child JOIN applications ON applications.id = child.application_id
-       WHERE applications.key = $1 AND applications.status = 'active' AND child.root_comment_id = $2 AND child.status = 'published' ${cursorClause}
+      WHERE applications.key = $1 AND applications.status = 'active' AND child.root_comment_id = $2 AND child.status = 'published' AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = child.application_id AND mute.member_id = $3 AND mute.muted_member_id = child.author_id) ${cursorClause}
        ORDER BY child.created_at ASC, child.id ASC LIMIT $${values.length}`,
       values
     );

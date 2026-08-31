@@ -56,6 +56,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), comment_id CHAR(26) NOT NULL REFERENCES comments(id),
         member_id TEXT NOT NULL, PRIMARY KEY (application_id, comment_id, member_id)
       );
+      CREATE TABLE IF NOT EXISTS muted_users (
+        application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL, muted_member_id TEXT NOT NULL,
+        PRIMARY KEY (application_id, member_id, muted_member_id), CHECK (member_id <> muted_member_id)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {
