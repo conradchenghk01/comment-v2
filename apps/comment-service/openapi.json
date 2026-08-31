@@ -495,6 +495,47 @@
           "Mutes"
         ]
       }
+    },
+    "/v1/comments/{commentId}/reports": {
+      "post": {
+        "operationId": "ReportsController_create",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
     }
   },
   "info": {
@@ -535,6 +576,10 @@
         "properties": {}
       },
       "UpdateSettingsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateReportDto": {
         "type": "object",
         "properties": {}
       }

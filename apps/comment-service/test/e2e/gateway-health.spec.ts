@@ -142,15 +142,23 @@ describe('public comments API', () => {
 
     const secondMemberTokenResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'reporter-one' }) });
     const secondMemberToken = (await secondMemberTokenResponse.json() as { accessToken: string }).accessToken;
-    const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${secondMemberToken}` }, body: JSON.stringify({ body: 'Second comment' }) });
+    const secondMemberHeaders = { ...headers, Authorization: `Bearer ${secondMemberToken}` };
+    const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: secondMemberHeaders, body: JSON.stringify({ body: 'Second comment' }) });
     expect(secondCommentResponse.status).toBe(201);
     const secondComment = await secondCommentResponse.json() as { id: string };
-    const firstPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1`, { headers });
+    const reportResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${secondComment.id}/reports`, { method: 'POST', headers, body: JSON.stringify({ reasonCategory: 'spam' }) });
+    expect(reportResponse.status).toBe(204);
+    const duplicateReportResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${secondComment.id}/reports`, { method: 'POST', headers, body: JSON.stringify({ reasonCategory: 'spam' }) });
+    expect(duplicateReportResponse.status).toBe(409);
+    const reportedListResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest`, { headers });
+    const reportedList = await reportedListResponse.json() as { items: Array<{ id: string }> };
+    expect(reportedList.items).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: secondComment.id })]));
+    const firstPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1`, { headers: secondMemberHeaders });
     expect(firstPageResponse.status).toBe(200);
     const firstPage = await firstPageResponse.json() as { items: Array<{ id: string }>; nextCursor: string };
     expect(firstPage.items).toEqual([expect.objectContaining({ id: comment.id })]);
     expect(firstPage.nextCursor).toEqual(expect.any(String));
-    const secondPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`, { headers });
+    const secondPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`, { headers: secondMemberHeaders });
     expect(secondPageResponse.status).toBe(200);
     await expect(secondPageResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ id: secondComment.id })], nextCursor: null });
 

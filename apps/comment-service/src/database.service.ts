@@ -60,6 +60,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL, muted_member_id TEXT NOT NULL,
         PRIMARY KEY (application_id, member_id, muted_member_id), CHECK (member_id <> muted_member_id)
       );
+      CREATE TABLE IF NOT EXISTS reports (
+        id CHAR(26) PRIMARY KEY, application_id UUID NOT NULL REFERENCES applications(id), reporter_id TEXT NOT NULL,
+        comment_id CHAR(26) NOT NULL REFERENCES comments(id), reported_author_id TEXT NOT NULL,
+        reason_category TEXT NOT NULL CHECK (reason_category IN ('spam', 'harassment', 'hate', 'misinformation', 'sexual_content', 'violence')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (application_id, reporter_id, comment_id)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {
