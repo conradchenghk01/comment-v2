@@ -42,6 +42,31 @@ export class CommentsService {
     return result.rows;
   }
 
+  async reply(applicationKey: string, rootCommentId: string, body: string, member: MemberIdentity): Promise<CommentRecord> {
+    this.validateBody(body);
+    const result = await this.database.query<CommentRecord>(
+      `INSERT INTO comments (id, application_id, article_key, root_comment_id, author_id, author_name, author_avatar_url, body, status)
+       SELECT $1, parent.application_id, parent.article_key, parent.id, $4, $5, $6, $7, 'published'
+       FROM comments parent JOIN applications ON applications.id = parent.application_id
+       WHERE applications.key = $2 AND applications.status = 'active' AND parent.id = $3 AND parent.root_comment_id IS NULL AND parent.status = 'published'
+       RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, created_at AS "createdAt"`,
+      [ulid(), applicationKey, rootCommentId, member.accountId, member.name, member.avatarUrl, body]
+    );
+    if (result.rowCount !== 1) throw new NotFoundException();
+    return result.rows[0];
+  }
+
+  async branch(applicationKey: string, rootCommentId: string, limit = 20): Promise<CommentRecord[]> {
+    const result = await this.database.query<CommentRecord>(
+      `SELECT child.id, child.article_key AS "articleKey", child.root_comment_id AS "rootCommentId", child.author_id AS "authorId", child.author_name AS "authorName", child.author_avatar_url AS "authorAvatarUrl", child.body, child.status, child.created_at AS "createdAt"
+       FROM comments child JOIN applications ON applications.id = child.application_id
+       WHERE applications.key = $1 AND applications.status = 'active' AND child.root_comment_id = $2 AND child.status = 'published'
+       ORDER BY child.created_at ASC, child.id ASC LIMIT $3`,
+      [applicationKey, rootCommentId, limit]
+    );
+    return result.rows;
+  }
+
   private validateBody(body: string): void {
     if (!body.trim()) throw new BadRequestException({ code: 'comment_body_blank', message: 'Comment body cannot be blank' });
     const count = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(body)].length;

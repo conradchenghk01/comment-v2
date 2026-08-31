@@ -95,5 +95,13 @@ describe('public comments API', () => {
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { headers });
     expect(listResponse.status).toBe(200);
     await expect(listResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: comment.id })]));
+
+    const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers, body: JSON.stringify({ body: 'First reply' }) });
+    expect(replyResponse.status).toBe(201);
+    const reply = await replyResponse.json() as { id: string; rootCommentId: string };
+    expect(reply.rootCommentId).toBe(comment.id);
+    const branchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
+    expect(branchResponse.status).toBe(200);
+    await expect(branchResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]));
   });
 });

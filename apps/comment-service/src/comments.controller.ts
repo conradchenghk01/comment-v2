@@ -22,4 +22,14 @@ export class CommentsController {
   list(@Headers('x-application-key') applicationKey: string, @Param('articleKey') articleKey: string, @Query() query: ListCommentsDto): Promise<CommentRecord[]> {
     return this.comments.list(applicationKey, articleKey, query.limit);
   }
+
+  @Post('comments/:commentId/replies')
+  reply(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Body() body: CreateCommentDto, @Req() request: Request & { member: MemberIdentity }): Promise<CommentRecord> {
+    return this.comments.reply(applicationKey, commentId, body.body, request.member);
+  }
+
+  @Get('comments/:commentId/branch')
+  branch(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string, @Query() query: ListCommentsDto): Promise<CommentRecord[]> {
+    return this.comments.branch(applicationKey, commentId, query.limit);
+  }
 }
