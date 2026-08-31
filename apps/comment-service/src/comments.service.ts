@@ -1,5 +1,6 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ulid } from 'ulid';
+import { CacheService } from './cache.service.js';
 import { DatabaseExecutor, DatabaseService } from './database.service.js';
 import { MemberIdentity } from './local-member.guard.js';
 
@@ -26,11 +27,11 @@ interface DatabaseCommentRecord extends CommentRecord { cursorCreatedAt?: string
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, @Optional() private readonly cache?: CacheService) {}
 
   async create(applicationKey: string, articleKey: string, body: string, member: MemberIdentity, idempotencyKey?: string): Promise<CommentRecord> {
     this.validateBody(body);
-    try { return await this.withTransaction(async (database) => {
+    try { const comment = await this.withTransaction(async (database) => {
       const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
       if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
@@ -43,7 +44,7 @@ export class CommentsService {
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
       return result.rows[0];
-    }); } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
+    }); await this.cache?.invalidateHotArticles(applicationKey); return comment; } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
   }
 
   async list(applicationKey: string, articleKey: string, memberId: string, sort: CommentSort = 'relevant', cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -70,7 +71,7 @@ export class CommentsService {
 
   async reply(applicationKey: string, rootCommentId: string, body: string, member: MemberIdentity, idempotencyKey?: string): Promise<CommentRecord> {
     this.validateBody(body);
-    try { return await this.withTransaction(async (database) => {
+    try { const comment = await this.withTransaction(async (database) => {
       const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
       if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
@@ -85,7 +86,7 @@ export class CommentsService {
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
       return result.rows[0];
-    }); } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
+    }); await this.cache?.invalidateHotArticles(applicationKey); return comment; } catch (error: unknown) { return this.replayAfterConflict(applicationKey, member.accountId, idempotencyKey, error); }
   }
 
   async branch(applicationKey: string, rootCommentId: string, memberId: string, cursor: string | undefined, limit = 20): Promise<CommentPage> {
@@ -122,10 +123,13 @@ export class CommentsService {
   }
 
   async hotArticles(applicationKey: string, limit = 20): Promise<{ items: HotArticle[] }> {
+    const cached = await this.cache?.getHotArticles(applicationKey, limit);
+    if (cached) return { items: cached };
     const result = await this.database.query<HotArticle>(
       `SELECT comment.article_key AS "articleKey", count(DISTINCT comment.id)::integer AS "commentCount", count(reaction.emoji)::integer AS "reactionCount", (count(DISTINCT comment.id) + count(reaction.emoji))::integer AS heat FROM comments comment JOIN applications application ON application.id = comment.application_id LEFT JOIN comment_reactions reaction ON reaction.comment_id = comment.id WHERE application.key = $1 AND application.status = 'active' AND comment.status = 'published' GROUP BY comment.article_key ORDER BY heat DESC, "articleKey" ASC LIMIT $2`,
       [applicationKey, limit]
     );
+    await this.cache?.setHotArticles(applicationKey, limit, result.rows);
     return { items: result.rows };
   }
 

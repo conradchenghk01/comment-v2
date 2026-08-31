@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { CacheService } from './cache.service.js';
 import { DatabaseService } from './database.service.js';
 import { CommentRecord } from './comments.service.js';
 import { AuditLogsService } from './audit-logs.service.js';
@@ -8,7 +9,7 @@ export interface ConsoleCommentFilters { keyword?: string; articleKey?: string; 
 
 @Injectable()
 export class ConsoleCommentsService {
-  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService) {}
+  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService, @Optional() private readonly cache?: CacheService) {}
 
   async list(applicationKey: string, filters: ConsoleCommentFilters): Promise<ConsoleCommentPage> {
     const values: unknown[] = [applicationKey];
@@ -36,6 +37,7 @@ export class ConsoleCommentsService {
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.auditLogs.record(database, applicationKey, 'comment.deleted', 'comment', commentId, {}, operatorId);
     });
+    await this.cache?.invalidateHotArticles(applicationKey);
   }
 
   async bulkDeleteByArticle(applicationKey: string, articleKey: string, operatorId: string): Promise<{ deletedCount: number }> {
@@ -47,7 +49,7 @@ export class ConsoleCommentsService {
   }
 
   private async bulkDelete(applicationKey: string, targetClause: string, targetId: string, targetType: 'article' | 'user', operatorId: string): Promise<{ deletedCount: number }> {
-    return this.database.transaction(async (database) => {
+    const deleted = await this.database.transaction(async (database) => {
       const result = await database.query(
         `UPDATE comments comment SET status = 'deleted' FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND ${targetClause} AND comment.status <> 'deleted'`,
         [applicationKey, targetId]
@@ -55,5 +57,7 @@ export class ConsoleCommentsService {
       await this.auditLogs.record(database, applicationKey, `comments.bulk_deleted_by_${targetType}`, targetType, targetId, { deletedCount: result.rowCount ?? 0 }, operatorId);
       return { deletedCount: result.rowCount ?? 0 };
     });
+    await this.cache?.invalidateHotArticles(applicationKey);
+    return deleted;
   }
 }

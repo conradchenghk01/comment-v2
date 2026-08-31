@@ -214,6 +214,9 @@ describe('public comments API', () => {
     const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: secondMemberHeaders, body: JSON.stringify({ body: 'Second comment' }) });
     expect(secondCommentResponse.status).toBe(201);
     const secondComment = await secondCommentResponse.json() as { id: string };
+    const refreshedHotArticlesResponse = await fetch(`${gatewayBaseUrl}/v1/hot-articles`, { headers });
+    expect(refreshedHotArticlesResponse.status).toBe(200);
+    await expect(refreshedHotArticlesResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ articleKey, commentCount: 3, reactionCount: 3, heat: 6 })] });
     const reportResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${secondComment.id}/reports`, { method: 'POST', headers, body: JSON.stringify({ reasonCategory: 'spam' }) });
     expect(reportResponse.status).toBe(204);
     const duplicateReportResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${secondComment.id}/reports`, { method: 'POST', headers, body: JSON.stringify({ reasonCategory: 'spam' }) });

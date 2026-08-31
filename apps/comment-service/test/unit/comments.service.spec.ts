@@ -65,8 +65,18 @@ describe('CommentsService', () => {
   });
 
   it('US-9b: ranks hot articles by visible comments and reactions', async () => {
-    const hotService = new CommentsService({ query: vi.fn().mockResolvedValue({ rows: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] }) } as never);
+    const getHotArticles = vi.fn().mockResolvedValue(undefined);
+    const setHotArticles = vi.fn();
+    const hotService = new CommentsService({ query: vi.fn().mockResolvedValue({ rows: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] }) } as never, { getHotArticles, setHotArticles } as never);
     await expect(hotService.hotArticles('app')).resolves.toEqual({ items: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] });
+    expect(setHotArticles).toHaveBeenCalledWith('app', 20, [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }]);
+  });
+
+  it('US-9b: returns a hot-article cache hit without querying PostgreSQL', async () => {
+    const query = vi.fn();
+    const hotService = new CommentsService({ query } as never, { getHotArticles: vi.fn().mockResolvedValue([{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }]) } as never);
+    await expect(hotService.hotArticles('app')).resolves.toEqual({ items: [{ articleKey: 'article', commentCount: 2, reactionCount: 3, heat: 5 }] });
+    expect(query).not.toHaveBeenCalled();
   });
 
   it('US-10a: replays an idempotent submission before consuming quota', async () => {

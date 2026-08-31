@@ -1,15 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
 import { ConsoleCommentPage } from './console-comments.service.js';
 import { CommentRecord } from './comments.service.js';
 import { AuditLogsService } from './audit-logs.service.js';
+import { CacheService } from './cache.service.js';
 
 export const rejectionCodes = ['violates_guidelines', 'spam', 'harassment', 'hate', 'sexual_content', 'misinformation'] as const;
 export type RejectionCode = typeof rejectionCodes[number];
 
 @Injectable()
 export class ModerationService {
-  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService) {}
+  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService, @Optional() private readonly cache?: CacheService) {}
 
   async pending(applicationKey: string, page: number, pageSize: number): Promise<ConsoleCommentPage> {
     const result = await this.database.query<CommentRecord & { total: string }>(
@@ -37,5 +38,6 @@ export class ModerationService {
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.auditLogs.record(database, applicationKey, `comment.${status === 'published' ? 'approved' : 'rejected'}`, 'comment', commentId, rejectionCode ? { rejectionCode } : {}, operatorId);
     });
+    await this.cache?.invalidateHotArticles(applicationKey);
   }
 }

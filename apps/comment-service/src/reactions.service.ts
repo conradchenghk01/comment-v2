@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { CacheService } from './cache.service.js';
 import { DatabaseService } from './database.service.js';
 
 export type Emoji = 'laugh' | 'cry' | 'cheer';
@@ -6,12 +7,13 @@ export interface ReactionState { counts: Record<Emoji, number>; active: Emoji[];
 
 @Injectable()
 export class ReactionsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, @Optional() private readonly cache?: CacheService) {}
   async toggle(applicationKey: string, commentId: string, memberId: string, emoji: Emoji): Promise<ReactionState> {
     const valid = await this.database.query(`SELECT 1 FROM comments c JOIN applications a ON a.id=c.application_id WHERE a.key=$1 AND a.status='active' AND c.id=$2 AND c.status='published'`, [applicationKey, commentId]);
     if (valid.rowCount !== 1) throw new NotFoundException();
     const removed = await this.database.query(`DELETE FROM comment_reactions r USING applications a WHERE a.id=r.application_id AND a.key=$1 AND r.comment_id=$2 AND r.member_id=$3 AND r.emoji=$4 RETURNING 1`, [applicationKey, commentId, memberId, emoji]);
     if (removed.rowCount === 0) await this.database.query(`INSERT INTO comment_reactions (application_id, comment_id, member_id, emoji) SELECT id,$2,$3,$4 FROM applications WHERE key=$1`, [applicationKey, commentId, memberId, emoji]);
+    await this.cache?.invalidateHotArticles(applicationKey);
     return this.state(applicationKey, commentId, memberId);
   }
   async triple(applicationKey: string, commentId: string, memberId: string): Promise<ReactionState> {
@@ -22,6 +24,7 @@ export class ReactionsService {
       if (error instanceof NotFoundException) throw error;
       throw new ConflictException({ code: 'triple_reaction_already_used' });
     }
+    await this.cache?.invalidateHotArticles(applicationKey);
     return this.state(applicationKey, commentId, memberId);
   }
   private async state(applicationKey: string, commentId: string, memberId: string): Promise<ReactionState> {
