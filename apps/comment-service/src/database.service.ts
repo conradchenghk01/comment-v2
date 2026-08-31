@@ -48,8 +48,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         author_avatar_url TEXT NOT NULL,
         body TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('published', 'pending', 'rejected', 'deleted')),
+        moderation_reason TEXT,
+        rejection_code TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS moderation_reason TEXT;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS rejection_code TEXT;
       CREATE INDEX IF NOT EXISTS comments_root_list_idx
         ON comments (application_id, article_key, created_at DESC, id DESC)
         WHERE root_comment_id IS NULL AND status = 'published';
