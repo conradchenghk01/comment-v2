@@ -143,6 +143,12 @@ describe('public comments API', () => {
     const autoBlockedResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers: reactorHeaders, body: JSON.stringify({ body: 'Auto blocked comment' }) });
     expect(autoBlockedResponse.status).toBe(403);
     await expect(autoBlockedResponse.json()).resolves.toMatchObject({ code: 'normal_blocked' });
+    const reportsResponse = await fetch(`${gatewayBaseUrl}/v1/console/reports?pageSize=50`, { headers: operatorHeaders });
+    expect(reportsResponse.status).toBe(200);
+    await expect(reportsResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ commentId: reply.id, reportedAuthorId: 'local-reactor' })]), total: 5 });
+    const autoBansResponse = await fetch(`${gatewayBaseUrl}/v1/console/auto-bans`, { headers: operatorHeaders });
+    expect(autoBansResponse.status).toBe(200);
+    await expect(autoBansResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ memberId: 'local-reactor', mode: 'normal', triggerCount: 1 })], total: 1 });
     const branchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
     expect(branchResponse.status).toBe(200);
     await expect(branchResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]), nextCursor: null });
