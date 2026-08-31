@@ -87,7 +87,8 @@ describe('public comments API', () => {
     const memberResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'author' }) });
     const memberToken = (await memberResponse.json() as { accessToken: string }).accessToken;
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}`, 'X-Application-Key': application.key };
-    const createResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'First comment' }) });
+    const articleKey = `article-${Date.now()}`;
+    const createResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'First comment' }) });
     expect(createResponse.status).toBe(201);
     const comment = await createResponse.json() as { id: string; status: string; body: string };
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
@@ -100,9 +101,9 @@ describe('public comments API', () => {
     await expect(tripleResponse.json()).resolves.toMatchObject({ counts: { laugh: 1, cry: 1, cheer: 1 }, tripleUsed: true });
     const repeatedTriple = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/triple-reaction`, { method: 'POST', headers });
     expect(repeatedTriple.status).toBe(409);
-    const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { headers });
+    const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers });
     expect(listResponse.status).toBe(200);
-    await expect(listResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: comment.id })]));
+    await expect(listResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, replyCount: 0, heat: 3 })]), nextCursor: null });
 
     const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers, body: JSON.stringify({ body: 'First reply' }) });
     expect(replyResponse.status).toBe(201);
@@ -110,6 +111,18 @@ describe('public comments API', () => {
     expect(reply.rootCommentId).toBe(comment.id);
     const branchResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/branch`, { headers });
     expect(branchResponse.status).toBe(200);
-    await expect(branchResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]));
+    await expect(branchResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: reply.id, rootCommentId: comment.id })]), nextCursor: null });
+
+    const secondCommentResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Second comment' }) });
+    expect(secondCommentResponse.status).toBe(201);
+    const secondComment = await secondCommentResponse.json() as { id: string };
+    const firstPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1`, { headers });
+    expect(firstPageResponse.status).toBe(200);
+    const firstPage = await firstPageResponse.json() as { items: Array<{ id: string }>; nextCursor: string };
+    expect(firstPage.items).toEqual([expect.objectContaining({ id: comment.id })]);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+    const secondPageResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments?sort=oldest&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor)}`, { headers });
+    expect(secondPageResponse.status).toBe(200);
+    await expect(secondPageResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ id: secondComment.id })], nextCursor: null });
   });
 });
