@@ -273,6 +273,60 @@
           "Comments"
         ]
       }
+    },
+    "/v1/comments/{commentId}/reactions/{emoji}": {
+      "put": {
+        "operationId": "ReactionsController_toggle",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reactions"
+        ]
+      }
+    },
+    "/v1/comments/{commentId}/triple-reaction": {
+      "post": {
+        "operationId": "ReactionsController_triple",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reactions"
+        ]
+      }
     }
   },
   "info": {

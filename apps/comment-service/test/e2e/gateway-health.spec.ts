@@ -92,6 +92,14 @@ describe('public comments API', () => {
     const comment = await createResponse.json() as { id: string; status: string; body: string };
     expect(comment).toMatchObject({ status: 'published', body: 'First comment' });
     expect(comment.id).toHaveLength(26);
+    const reactionResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/reactions/laugh`, { method: 'PUT', headers });
+    expect(reactionResponse.status).toBe(200);
+    await expect(reactionResponse.json()).resolves.toMatchObject({ counts: { laugh: 1 }, active: ['laugh'], tripleUsed: false });
+    const tripleResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/triple-reaction`, { method: 'POST', headers });
+    expect(tripleResponse.status).toBe(201);
+    await expect(tripleResponse.json()).resolves.toMatchObject({ counts: { laugh: 1, cry: 1, cheer: 1 }, tripleUsed: true });
+    const repeatedTriple = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/triple-reaction`, { method: 'POST', headers });
+    expect(repeatedTriple.status).toBe(409);
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/article-1/comments`, { headers });
     expect(listResponse.status).toBe(200);
     await expect(listResponse.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: comment.id })]));

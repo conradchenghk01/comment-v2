@@ -43,6 +43,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       CREATE INDEX IF NOT EXISTS comments_root_list_idx
         ON comments (application_id, article_key, created_at DESC, id DESC)
         WHERE root_comment_id IS NULL AND status = 'published';
+      CREATE TABLE IF NOT EXISTS comment_reactions (
+        application_id UUID NOT NULL REFERENCES applications(id), comment_id CHAR(26) NOT NULL REFERENCES comments(id),
+        member_id TEXT NOT NULL, emoji TEXT NOT NULL CHECK (emoji IN ('laugh', 'cry', 'cheer')),
+        PRIMARY KEY (application_id, comment_id, member_id, emoji)
+      );
+      CREATE TABLE IF NOT EXISTS triple_reactions (
+        application_id UUID NOT NULL REFERENCES applications(id), comment_id CHAR(26) NOT NULL REFERENCES comments(id),
+        member_id TEXT NOT NULL, PRIMARY KEY (application_id, comment_id, member_id)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {
