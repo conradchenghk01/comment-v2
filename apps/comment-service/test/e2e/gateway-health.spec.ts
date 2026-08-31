@@ -184,6 +184,9 @@ describe('public comments API', () => {
     const autoBansResponse = await fetch(`${gatewayBaseUrl}/v1/console/auto-bans`, { headers: operatorHeaders });
     expect(autoBansResponse.status).toBe(200);
     await expect(autoBansResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ memberId: 'local-reactor', mode: 'normal', triggerCount: 1 })], total: 1 });
+    const auditLogsResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs?pageSize=50`, { headers: operatorHeaders });
+    expect(auditLogsResponse.status).toBe(200);
+    await expect(auditLogsResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'user.auto_banned', targetType: 'user', targetId: 'local-reactor', metadata: { triggerCount: 1, reportCount: 5, mode: 'normal' } })]) });
     const usersResponse = await fetch(`${gatewayBaseUrl}/v1/console/users?pageSize=50`, { headers: operatorHeaders });
     expect(usersResponse.status).toBe(200);
     await expect(usersResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ memberId: 'local-reactor', commentCount: 1, reportCount: 5, blockMode: 'normal' })]) });

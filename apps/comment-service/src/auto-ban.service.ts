@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { AuditLogsService } from './audit-logs.service.js';
 import { DatabaseExecutor } from './database.service.js';
 
 @Injectable()
 export class AutoBanService {
+  constructor(private readonly auditLogs: AuditLogsService) {}
+
   async evaluate(database: DatabaseExecutor, applicationId: string, memberId: string): Promise<void> {
     await database.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`${applicationId}:${memberId}`]);
     const reports = await database.query<{ count: string }>(`SELECT count(*)::text AS count FROM reports WHERE application_id = $1 AND reported_author_id = $2 AND created_at >= now() - interval '24 hours'`, [applicationId, memberId]);
@@ -15,5 +18,6 @@ export class AutoBanService {
     const mode = count >= 4 ? 'full' : 'normal';
     const expiresAt = count === 1 ? "now() + interval '1 day'" : count === 2 ? "now() + interval '1 week'" : count === 3 ? "now() + interval '1 month'" : 'NULL';
     await database.query(`INSERT INTO user_blocks (application_id, member_id, mode, source, expires_at) VALUES ($1, $2, $3, 'auto', ${expiresAt}) ON CONFLICT (application_id, member_id) DO UPDATE SET mode = EXCLUDED.mode, source = 'auto', expires_at = EXCLUDED.expires_at WHERE user_blocks.source = 'auto' OR user_blocks.expires_at <= now()`, [applicationId, memberId, mode]);
+    await this.auditLogs.recordForApplicationId(database, applicationId, 'user.auto_banned', 'user', memberId, { triggerCount: count, reportCount: Number(reports.rows[0]?.count ?? 0), mode });
   }
 }
