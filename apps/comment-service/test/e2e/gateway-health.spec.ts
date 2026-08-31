@@ -61,6 +61,17 @@ describe('application API', () => {
     const updateSettingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { method: 'PUT', headers: settingsHeaders, body: JSON.stringify({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48 }) });
     expect(updateSettingsResponse.status).toBe(200);
     await expect(updateSettingsResponse.json()).resolves.toEqual({ commentIntervalSeconds: 120, dailyCommentLimit: 10, newUserCooldownHours: 48, yidunModerationEnabled: false, autoBanThresholdOne: 5, autoBanThresholdTwo: 10, autoBanThresholdThree: 20 });
+    const sensitiveWordResponse = await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { method: 'POST', headers: settingsHeaders, body: JSON.stringify({ word: ' Example ' }) });
+    expect(sensitiveWordResponse.status).toBe(201);
+    const sensitiveWord = await sensitiveWordResponse.json() as { id: string; word: string };
+    expect(sensitiveWord).toMatchObject({ word: 'example' });
+    const sensitiveWordsResponse = await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { headers: settingsHeaders });
+    await expect(sensitiveWordsResponse.json()).resolves.toEqual([expect.objectContaining({ id: sensitiveWord.id, word: 'example' })]);
+    const duplicateWordResponse = await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { method: 'POST', headers: settingsHeaders, body: JSON.stringify({ word: 'EXAMPLE' }) });
+    expect(duplicateWordResponse.status).toBe(409);
+    await expect(duplicateWordResponse.json()).resolves.toMatchObject({ code: 'sensitive_word_exists' });
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words/${sensitiveWord.id}`, { method: 'DELETE', headers: settingsHeaders })).status).toBe(204);
+    await expect((await fetch(`${gatewayBaseUrl}/v1/console/sensitive-words`, { headers: settingsHeaders })).json()).resolves.toEqual([]);
 
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { headers });
     expect(listResponse.status).toBe(200);

@@ -34,9 +34,11 @@ import { ConsoleUsersService } from './console-users.service.js';
 import { OriginsController } from './origins.controller.js';
 import { OriginsService } from './origins.service.js';
 import { OriginGuardMiddleware } from './origin-guard.middleware.js';
+import { SensitiveWordsController } from './sensitive-words.controller.js';
+import { SensitiveWordsService } from './sensitive-words.service.js';
 
 @Module({
-  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController, ModerationController, AuditLogsController, ConsoleReportsController, ConsoleUsersController, OriginsController],
-  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService, AutoBanService, ModerationService, AuditLogsService, ConsoleReportsService, ConsoleUsersService, OriginsService, OriginGuardMiddleware]
+  controllers: [HealthController, LocalAuthController, ApplicationsController, CommentsController, ReactionsController, SettingsController, ConsoleCommentsController, MutesController, ReportsController, BlocksController, ModerationController, AuditLogsController, ConsoleReportsController, ConsoleUsersController, OriginsController, SensitiveWordsController],
+  providers: [DatabaseService, LocalOnlyGuard, LocalOperatorGuard, LocalMemberGuard, PublicBlockGuard, ApplicationsService, CommentsService, ReactionsService, SettingsService, ConsoleCommentsService, MutesService, ReportsService, BlocksService, AutoBanService, ModerationService, AuditLogsService, ConsoleReportsService, ConsoleUsersService, OriginsService, OriginGuardMiddleware, SensitiveWordsService]
 })
 export class AppModule {}

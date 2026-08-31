@@ -1031,6 +1031,91 @@
           "Origins"
         ]
       }
+    },
+    "/v1/console/sensitive-words": {
+      "get": {
+        "operationId": "SensitiveWordsController_list",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SensitiveWords"
+        ]
+      },
+      "post": {
+        "operationId": "SensitiveWordsController_add",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSensitiveWordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SensitiveWords"
+        ]
+      }
+    },
+    "/v1/console/sensitive-words/{wordId}": {
+      "delete": {
+        "operationId": "SensitiveWordsController_remove",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SensitiveWords"
+        ]
+      }
     }
   },
   "info": {
@@ -1099,6 +1184,10 @@
         "properties": {}
       },
       "OriginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSensitiveWordDto": {
         "type": "object",
         "properties": {}
       }

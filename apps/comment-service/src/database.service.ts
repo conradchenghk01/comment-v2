@@ -99,6 +99,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         application_id UUID NOT NULL REFERENCES applications(id), member_id TEXT NOT NULL, key TEXT NOT NULL,
         comment_id CHAR(26) NOT NULL REFERENCES comments(id), PRIMARY KEY (application_id, member_id, key)
       );
+      CREATE TABLE IF NOT EXISTS sensitive_words (
+        id CHAR(26) PRIMARY KEY, application_id UUID NOT NULL REFERENCES applications(id), normalized_word TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (application_id, normalized_word)
+      );
     `);
 
     if (process.env.APP_ENV === 'local') {
