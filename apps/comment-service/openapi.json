@@ -1116,6 +1116,30 @@
           "SensitiveWords"
         ]
       }
+    },
+    "/v1/local/reset": {
+      "post": {
+        "operationId": "LocalResetController_reset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "LocalReset"
+        ]
+      }
     }
   },
   "info": {
@@ -1188,6 +1212,10 @@
         "properties": {}
       },
       "CreateSensitiveWordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResetDto": {
         "type": "object",
         "properties": {}
       }
