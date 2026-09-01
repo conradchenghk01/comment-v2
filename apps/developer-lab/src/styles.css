@@ -1,1 +1,22 @@
 :root { font-family: "IBM Plex Mono", "SFMono-Regular", monospace; color: #182831; background: #e8efe9; } * { box-sizing: border-box; } body { margin: 0; } main { max-width: 1100px; margin: 0 auto; padding: 28px; } header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #759b8b; padding-bottom: 16px; } header strong { font-size: 18px; } header span { color: #486459; font-size: 13px; } .locale-switch { display: inline-flex; gap: 6px; } .locale-switch button { padding: 6px 12px; font-size: 12px; } .locale-switch button.active { background: #17242d; border-color: #17242d; } .guide { margin-top: 26px; } .guide-head { display: flex; justify-content: space-between; align-items: center; } .guide-steps { margin: 0; padding-left: 22px; display: grid; gap: 12px; font-size: 13px; line-height: 1.6; } .guide-steps li { display: grid; gap: 4px; } .guide-steps strong { font-size: 13px; } .guide-steps span { color: #33544a; } .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 30px 0; } .panel, .response { border: 1px solid #9db7aa; background: #f8fbf5; padding: 20px; } .response { grid-column: 1 / -1; } h1, h2 { margin: 0 0 18px; font-size: 18px; } h2 { font-size: 14px; } label { display: grid; gap: 7px; margin: 14px 0; font-size: 12px; font-weight: 700; } input, select, textarea, button { width: 100%; font: inherit; border-radius: 3px; border: 1px solid #7b9889; padding: 10px; background: #fff; color: #182831; } textarea { min-height: 110px; resize: vertical; } button { width: auto; background: #245c51; color: #fff; border-color: #245c51; font-weight: 700; cursor: pointer; } button:disabled { background: #9aa9a0; border-color: #9aa9a0; cursor: not-allowed; } button.danger { background: #a63d40; border-color: #a63d40; } .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; } .inline-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; } pre { margin: 0; min-height: 180px; padding: 16px; overflow: auto; background: #17242d; color: #d9f3e7; font-size: 12px; line-height: 1.5; } @media (max-width: 720px) { main { padding: 18px; } .workspace { grid-template-columns: 1fr; } .response { grid-column: auto; } .inline-form { grid-template-columns: 1fr; } }
+.comment-board h2 { margin: 22px 0 12px; }
+.no-comments { margin: 8px 0; color: #486459; font-size: 13px; }
+.comment-thread { display: grid; gap: 12px; }
+.comment { border: 1px solid #c5d6cc; background: #fff; padding: 12px; display: grid; gap: 8px; }
+.comment header { display: flex; gap: 10px; align-items: baseline; border: none; padding: 0; justify-content: flex-start; }
+.comment header strong { font-size: 13px; }
+.comment time { color: #7b9889; font-size: 11px; }
+.comment .status { font-size: 10px; padding: 2px 6px; border-radius: 8px; background: #dfeee6; color: #245c51; }
+.comment .status.pending { background: #f4e9c9; color: #8a6d1a; }
+.comment .status.rejected { background: #f3d9d9; color: #a63d40; }
+.comment .status.deleted { background: #e3e3e3; color: #666; }
+.comment p { margin: 0; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.comment-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.comment-actions button { padding: 4px 10px; font-size: 12px; }
+.comment-actions button.emoji { background: #fff; color: #182831; border-color: #7b9889; }
+.comment-actions button.emoji.active { background: #245c51; border-color: #245c51; color: #fff; }
+.comment-actions button.triple { background: #6b4f9e; border-color: #6b4f9e; }
+.comment-actions button.triple:disabled { background: #9aa9a0; border-color: #9aa9a0; }
+.replies { display: grid; gap: 10px; border-left: 2px solid #c5d6cc; padding-left: 12px; margin-top: 4px; }
+.reply-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed #7b9889; background: #eef5ef; padding: 8px 10px; font-size: 12px; margin-bottom: 10px; }
+.reply-target button { padding: 4px 10px; font-size: 12px; }

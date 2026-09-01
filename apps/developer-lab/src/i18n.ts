@@ -26,6 +26,13 @@ const zh = {
   commentBody: '留言內容',
   postComment: '發佈留言',
   listComments: '查看留言',
+  commentBoard: '留言列表',
+  reply: '回覆',
+  postReply: '發佈回覆',
+  cancelReply: '取消回覆',
+  replyingTo: '回覆給：',
+  triple: '3連',
+  noComments: '尚無留言。發佈第一則，或按「查看留言」重新整理。',
   response: 'API 回應',
   ready: '就緒。先以本地操作員登入，建立或選擇應用，再取得用戶 token。',
   confirmReset: '這會刪除所有應用、留言與資料，並重建資料庫 schema。確定繼續？',
@@ -55,6 +62,13 @@ const en: Record<TranslationKey, string> = {
   commentBody: 'Comment',
   postComment: 'Post comment',
   listComments: 'List comments',
+  commentBoard: 'Comment board',
+  reply: 'Reply',
+  postReply: 'Post reply',
+  cancelReply: 'Cancel reply',
+  replyingTo: 'Replying to:',
+  triple: 'Triple',
+  noComments: 'No comments yet. Post the first one, or press "List comments" to refresh.',
   response: 'API response',
   ready: 'Ready. Sign in as the local operator, create or select an application, then issue a member token.',
   confirmReset: 'This deletes ALL applications, comments, and data, then recreates the database schema. Continue?',
@@ -90,7 +104,7 @@ export const guide: Record<Locale, GuideStep[]> = {
     },
     {
       title: '發佈與查看留言',
-      body: '填入文章 key（同一篇文章必須使用同一個 key），撰寫內容後按「發佈留言」；按「查看留言」會列出該文章的全部留言。每個請求的完整 API 回應都會顯示在下方的回應區。'
+      body: '填入文章 key（同一篇文章必須使用同一個 key），撰寫內容後按「發佈留言」，下方列表會即時顯示留言與回覆。在留言上按「回覆」可撰寫子留言；😂/😭/🎉 按鈕可加入或取消表情反應，「3連」一次送出三個表情（每帳號限一次）。每個請求的完整 API 回應都會顯示在回應區。'
     },
     {
       title: '完全重置（危險操作）',
@@ -112,7 +126,7 @@ export const guide: Record<Locale, GuideStep[]> = {
     },
     {
       title: 'Post and list comments',
-      body: 'Set the article key (the same article must use the same key), write the comment, and press "Post comment"; "List comments" returns every comment on that article. The full API response for each request appears in the response panel below.'
+      body: 'Set the article key (the same article must use the same key), write the comment, and press "Post comment" — the board below refreshes with roots and replies. Press "Reply" on a comment to compose a sub-comment; the 😂/😭/🎉 buttons toggle emoji reactions, and "Triple" fires all three at once (once per account). The full API response for each request appears in the response panel below.'
     },
     {
       title: 'Full reset (dangerous)',

@@ -5,11 +5,30 @@ import { createRoot, Root } from 'react-dom/client';
 import { createT, defaultLocale, guide, Locale, locales, resolveLocale, TranslationKey, translations } from '../src/i18n.js';
 
 const setItem = vi.fn();
-const getItem = vi.fn(() => null);
+const getItem = vi.fn<() => string | null>(() => null);
 
 vi.stubGlobal('localStorage', { getItem, setItem });
-vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, text: () => Promise.resolve('') })));
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+
+const fetchCalls: Array<{ path: string; method: string; body?: string }> = [];
+let commentsFixture: Record<string, unknown> = { items: [] };
+let branchFixture: Record<string, unknown> = { items: [] };
+let reactionFixture: Record<string, unknown> = { counts: { laugh: 0, cry: 0, cheer: 0 }, active: [], tripleUsed: false };
+
+vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const path = String(input).replace(/^https?:\/\/[^/]+/, '');
+  fetchCalls.push({ path, method: init?.method ?? 'GET', body: typeof init?.body === 'string' ? init.body : undefined });
+  let payload: unknown = {};
+  if (path === '/v1/local/auth/operator/login' || path === '/v1/local/auth/member/token') payload = { accessToken: 'token-123' };
+  else if (path === '/v1/console/applications') payload = [{ key: 'app-1', name: 'Demo App', slug: 'demo-app', status: 'active' }];
+  else if (path.includes('/triple-reaction') || path.includes('/reactions/')) payload = reactionFixture;
+  else if (path.includes('/branch')) payload = branchFixture;
+  else if (path.includes('/replies')) payload = { id: 'reply-new', rootCommentId: 'root-1', authorName: 'author', body: '回覆內容', status: 'published', createdAt: '2026-09-01T10:05:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
+  else if (path.includes('/comments')) payload = commentsFixture;
+  else if (path === '/v1/local/reset') payload = { message: 'ok' };
+  const text = () => Promise.resolve(JSON.stringify(payload));
+  return { ok: true, status: 200, text } as Response;
+}));
 
 const { default: Lab } = await import('../src/main.js');
 
@@ -108,5 +127,98 @@ describe('Lab language switching', () => {
     const showButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '顯示指南')!;
     click(showButton);
     expect(container.textContent).toContain('獨立的留言空間');
+  });
+});
+
+describe('Lab comment board interactions', () => {
+  let container: HTMLElement;
+
+  const rootComment = { id: 'root-1', rootCommentId: null, authorName: 'author', body: '第一則留言', status: 'published', createdAt: '2026-09-01T10:00:00Z', replyCount: 1, reactionCounts: { laugh: 2, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
+  const childComment = { id: 'reply-1', rootCommentId: 'root-1', authorName: 'reactor', body: '第一則回覆', status: 'published', createdAt: '2026-09-01T10:01:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="lab"></div>';
+    container = document.getElementById('lab')!;
+    fetchCalls.length = 0;
+    commentsFixture = { items: [rootComment] };
+    branchFixture = { items: [childComment] };
+    reactionFixture = { counts: { laugh: 0, cry: 0, cheer: 0 }, active: [], tripleUsed: false };
+  });
+
+  function findButton(label: string): HTMLButtonElement {
+    return ([...container.querySelectorAll('button')] as HTMLButtonElement[]).find((button) => button.textContent?.startsWith(label))!;
+  }
+
+  async function signInAndLoadBoard(): Promise<void> {
+    renderLab(container);
+    await act(async () => { click(findButton('登入操作員')); });
+    await act(async () => { click(findButton('發給我 token')); });
+    await act(async () => { click(findButton('查看留言')); });
+  }
+
+  it('renders the comment board with status badges and reply controls', async () => {
+    await signInAndLoadBoard();
+    expect(container.textContent).toContain('第一則留言');
+    expect(container.querySelector('.comment')).toBeTruthy();
+    expect(findButton('回覆')).toBeTruthy();
+    expect(container.textContent).toContain('😂 2');
+  });
+
+  it('loads replies as a nested thread', async () => {
+    await signInAndLoadBoard();
+    expect(container.textContent).toContain('第一則回覆');
+    expect(container.querySelector('.reply')).toBeTruthy();
+    const branchCall = fetchCalls.find((call) => call.path.includes('/branch'));
+    expect(branchCall).toBeTruthy();
+  });
+
+  it('toggles an emoji reaction via PUT', async () => {
+    await signInAndLoadBoard();
+    fetchCalls.length = 0;
+    reactionFixture = { counts: { laugh: 3, cry: 0, cheer: 0 }, active: ['laugh'], tripleUsed: false };
+    const laughButton = ([...container.querySelectorAll('button.emoji')] as HTMLButtonElement[]).find((button) => button.textContent?.includes('😂'))!;
+    await act(async () => { click(laughButton); });
+    const reactionCall = fetchCalls.find((call) => call.path.includes('/reactions/laugh'));
+    expect(reactionCall?.method).toBe('PUT');
+    expect(container.textContent).toContain('😂 3');
+    expect(laughButton.classList.contains('active')).toBe(true);
+  });
+
+  it('fires the triple reaction via POST and disables afterwards', async () => {
+    await signInAndLoadBoard();
+    fetchCalls.length = 0;
+    reactionFixture = { counts: { laugh: 1, cry: 1, cheer: 1 }, active: ['laugh', 'cry', 'cheer'], tripleUsed: true };
+    const tripleButton = findButton('3連');
+    await act(async () => { click(tripleButton); });
+    const tripleCall = fetchCalls.find((call) => call.path.includes('/triple-reaction'));
+    expect(tripleCall?.method).toBe('POST');
+    expect(container.textContent).toContain('🎉 1');
+    expect(findButton('3連').disabled).toBe(true);
+  });
+
+  it('switches the composer into reply mode and posts to the replies endpoint', async () => {
+    await signInAndLoadBoard();
+    fetchCalls.length = 0;
+    await act(async () => { click(findButton('回覆')); });
+    expect(container.textContent).toContain('回覆給：');
+    const textarea = container.querySelector('textarea')!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(textarea, '回覆內容');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { click(findButton('發佈回覆')); });
+    const replyCall = fetchCalls.find((call) => call.path.includes('/comments/root-1/replies'));
+    expect(replyCall?.method).toBe('POST');
+    expect(replyCall?.body).toContain('回覆內容');
+    expect(container.textContent).not.toContain('回覆給：');
+  });
+
+  it('cancels reply mode without posting', async () => {
+    await signInAndLoadBoard();
+    await act(async () => { click(findButton('回覆')); });
+    expect(container.textContent).toContain('回覆給：');
+    await act(async () => { click(findButton('取消回覆')); });
+    expect(container.textContent).not.toContain('回覆給：');
   });
 });

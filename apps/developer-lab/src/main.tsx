@@ -8,6 +8,22 @@ const users = ['author', 'reactor', 'reporter-one', 'reporter-two', 'reporter-th
 const localeStorageKey = 'comment-lab-locale';
 
 interface Application { key: string; name: string; slug: string; status: string; }
+interface LabComment {
+  id: string;
+  rootCommentId: string | null;
+  authorName: string;
+  body: string;
+  status: string;
+  createdAt: string;
+  replyCount: number;
+  reactionCounts: { laugh: number; cry: number; cheer: number };
+  viewerReactions: string[];
+  viewerTripleUsed: boolean;
+  replies?: LabComment[];
+}
+interface ReactionState { counts: { laugh: number; cry: number; cheer: number }; active: string[]; tripleUsed: boolean; }
+type Emoji = 'laugh' | 'cry' | 'cheer';
+const emojiLabels: Record<Emoji, string> = { laugh: '😂', cry: '😭', cheer: '🎉' };
 
 function Lab() {
   const [locale, setLocale] = useState<Locale>(() => resolveLocale(window.localStorage.getItem(localeStorageKey)));
@@ -21,6 +37,8 @@ function Lab() {
   const [articleKey, setArticleKey] = useState('demo-article');
   const [body, setBody] = useState('');
   const [result, setResult] = useState<string | null>(null);
+  const [comments, setComments] = useState<LabComment[]>([]);
+  const [replyTarget, setReplyTarget] = useState<LabComment | null>(null);
 
   function switchLocale(next: Locale): void {
     setLocale(next);
@@ -68,6 +86,8 @@ function Lab() {
     setApplications([]);
     setApplicationKey('');
     setMemberToken('');
+    setComments([]);
+    setReplyTarget(null);
     setResult(JSON.stringify({ status: 200, payload: { message: t('resetDone') } }, null, 2));
   }
 
@@ -75,12 +95,50 @@ function Lab() {
 
   async function createComment(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) });
+    const target = replyTarget;
+    const path = target ? `/v1/comments/${encodeURIComponent(target.id)}/replies` : `/v1/articles/${encodeURIComponent(articleKey)}/comments`;
+    await request(path, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) });
     setBody('');
+    setReplyTarget(null);
+    await listComments();
   }
 
   async function listComments(): Promise<void> {
-    await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders() });
+    const page = await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders() }) as { items: LabComment[] };
+    const roots = page.items.map((comment) => ({ ...comment, replies: [] as LabComment[] }));
+    await Promise.all(roots.filter((root) => root.replyCount > 0).map(async (root) => {
+      const branch = await request(`/v1/comments/${encodeURIComponent(root.id)}/branch`, { headers: memberHeaders() }) as { items: LabComment[] };
+      root.replies = branch.items;
+    }));
+    setComments(roots);
+  }
+
+  function updateComment(tree: LabComment[], id: string, patch: (comment: LabComment) => LabComment): LabComment[] {
+    return tree.map((comment) => comment.id === id ? patch(comment) : { ...comment, replies: updateComment(comment.replies ?? [], id, patch) });
+  }
+
+  async function toggleReaction(comment: LabComment, emoji: Emoji): Promise<void> {
+    const state = await request(`/v1/comments/${encodeURIComponent(comment.id)}/reactions/${emoji}`, { method: 'PUT', headers: memberHeaders() }) as ReactionState;
+    setComments((current) => updateComment(current, comment.id, (entry) => ({ ...entry, reactionCounts: state.counts, viewerReactions: state.active, viewerTripleUsed: state.tripleUsed })));
+  }
+
+  async function tripleReaction(comment: LabComment): Promise<void> {
+    const state = await request(`/v1/comments/${encodeURIComponent(comment.id)}/triple-reaction`, { method: 'POST', headers: memberHeaders() }) as ReactionState;
+    setComments((current) => updateComment(current, comment.id, (entry) => ({ ...entry, reactionCounts: state.counts, viewerReactions: state.active, viewerTripleUsed: state.tripleUsed })));
+  }
+
+  function renderComment(comment: LabComment) {
+    const canReact = Boolean(memberToken && applicationKey);
+    return <article key={comment.id} className={comment.rootCommentId ? 'comment reply' : 'comment'}>
+      <header><strong>{comment.authorName}</strong><time>{comment.createdAt.slice(0, 19).replace('T', ' ')}</time><span className={`status ${comment.status}`}>{comment.status}</span></header>
+      <p>{comment.body}</p>
+      <div className="comment-actions">
+        {(['laugh', 'cry', 'cheer'] as const).map((emoji) => <button key={emoji} type="button" className={`emoji${comment.viewerReactions.includes(emoji) ? ' active' : ''}`} disabled={!canReact} onClick={() => void toggleReaction(comment, emoji)}>{emojiLabels[emoji]} {comment.reactionCounts[emoji]}</button>)}
+        <button type="button" className="triple" disabled={!canReact || comment.viewerTripleUsed} onClick={() => void tripleReaction(comment)}>{t('triple')}</button>
+        {!comment.rootCommentId && <button type="button" className="link" disabled={!canReact} onClick={() => setReplyTarget(comment)}>{t('reply')}</button>}
+      </div>
+      {(comment.replies?.length ?? 0) > 0 && <div className="replies">{comment.replies!.map((child) => renderComment(child))}</div>}
+    </article>;
   }
 
   return <main>
@@ -125,13 +183,18 @@ function Lab() {
       <div className="panel">
         <h1>{t('comments')}</h1>
         <label>{t('articleKey')}<input value={articleKey} onChange={(event) => setArticleKey(event.target.value)} required /></label>
-        <form onSubmit={(event) => void createComment(event)}>
+        <form className="comment-form" onSubmit={(event) => void createComment(event)}>
+          {replyTarget && <div className="reply-target"><span>{t('replyingTo')} <strong>{replyTarget.authorName}</strong></span><button type="button" onClick={() => setReplyTarget(null)}>{t('cancelReply')}</button></div>}
           <label>{t('commentBody')}<textarea value={body} onChange={(event) => setBody(event.target.value)} required maxLength={1000} /></label>
           <div className="actions">
-            <button disabled={!memberToken || !applicationKey}>{t('postComment')}</button>
+            <button disabled={!memberToken || !applicationKey}>{replyTarget ? t('postReply') : t('postComment')}</button>
             <button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>{t('listComments')}</button>
           </div>
         </form>
+        <div className="comment-board">
+          <h2>{t('commentBoard')}</h2>
+          {comments.length === 0 ? <p className="no-comments">{t('noComments')}</p> : <div className="comment-thread">{comments.map((comment) => renderComment(comment))}</div>}
+        </div>
       </div>
       <div className="response">
         <h2>{t('response')}</h2>
