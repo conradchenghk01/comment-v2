@@ -30,7 +30,7 @@ const localMembers = {
   'reporter-three': { accountId: 'local-reporter-3', name: 'Reporter Three', avaterUrl: 'https://example.test/avatar/reporter-3.png', createdAt: '2026-01-01T00:00:00.000Z' },
   'reporter-four': { accountId: 'local-reporter-4', name: 'Reporter Four', avaterUrl: 'https://example.test/avatar/reporter-4.png', createdAt: '2026-01-01T00:00:00.000Z' },
   'reporter-five': { accountId: 'local-reporter-5', name: 'Reporter Five', avaterUrl: 'https://example.test/avatar/reporter-5.png', createdAt: '2026-01-01T00:00:00.000Z' },
-  'new-user': { accountId: 'local-new-user', name: 'New User', avaterUrl: 'https://example.test/avatar/new-user.png', createdAt: '2026-08-31T00:00:00.000Z' }
+  'new-user': { accountId: 'local-new-user', name: 'New User', avaterUrl: 'https://example.test/avatar/new-user.png', createdAt: new Date().toISOString() }
 } as const;
 
 @Controller('local/auth')
