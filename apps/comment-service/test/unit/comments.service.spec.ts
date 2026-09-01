@@ -20,6 +20,7 @@ describe('CommentsService', () => {
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ application_id: 'app-id', comment_interval_seconds: 0, daily_comment_limit: 20, new_user_cooldown_hours: 0 }] })
       .mockResolvedValueOnce({ rowCount: 0, rows: [] })
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ yidun_moderation_enabled: false }] })
       .mockResolvedValueOnce({ rowCount: 0, rows: [] });
     const replyService = new CommentsService({ query, transaction: async (work: (database: never) => Promise<unknown>) => work({ query } as never) } as never);
     await expect(replyService.reply('app', 'child-or-missing', 'Reply', { accountId: 'user', name: 'User', avatarUrl: 'avatar', createdAt: '2026-01-01T00:00:00Z' })).rejects.toBeInstanceOf(NotFoundException);
@@ -80,7 +81,7 @@ describe('CommentsService', () => {
   });
 
   it('US-10a: replays an idempotent submission before consuming quota', async () => {
-    const replay = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'member', authorName: 'Member', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0 };
+    const replay = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'member', authorName: 'Member', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', rejectionCode: null, createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0 };
     const query = vi.fn().mockResolvedValue({ rows: [replay] });
     const idempotentService = new CommentsService({ query, transaction: async (work: (database: never) => Promise<unknown>) => work({ query } as never) } as never);
     await expect(idempotentService.create('app', 'article', 'Comment', { accountId: 'member', name: 'Member', avatarUrl: 'avatar', createdAt: '2026-01-01T00:00:00Z' }, 'key')).resolves.toEqual(replay);

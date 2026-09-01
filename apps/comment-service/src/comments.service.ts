@@ -1,6 +1,7 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ulid } from 'ulid';
 import { CacheService } from './cache.service.js';
+import { ContentModerationAdapter, CONTENT_MODERATION_ADAPTER } from './content-moderation.js';
 import { DatabaseExecutor, DatabaseService } from './database.service.js';
 import { MemberIdentity } from './local-member.guard.js';
 
@@ -13,6 +14,7 @@ export interface CommentRecord {
   authorAvatarUrl: string;
   body: string;
   status: string;
+  rejectionCode: string | null;
   createdAt: string;
   replyCount: number;
   heat: number;
@@ -27,7 +29,7 @@ interface DatabaseCommentRecord extends CommentRecord { cursorCreatedAt?: string
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly database: DatabaseService, @Optional() private readonly cache?: CacheService) {}
+  constructor(private readonly database: DatabaseService, @Optional() private readonly cache?: CacheService, @Optional() @Inject(CONTENT_MODERATION_ADAPTER) private readonly moderation?: ContentModerationAdapter) {}
 
   async create(applicationKey: string, articleKey: string, body: string, member: MemberIdentity, idempotencyKey?: string): Promise<CommentRecord> {
     this.validateBody(body);
@@ -35,11 +37,12 @@ export class CommentsService {
       const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
       if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
+      const status = await this.initialStatus(database, applicationKey, body);
       const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, author_id, author_name, author_avatar_url, body, status)
-       SELECT $1, id, $3, $4, $5, $6, $7, 'published' FROM applications WHERE key = $2 AND status = 'active'
-        RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
-      [ulid(), applicationKey, articleKey, member.accountId, member.name, member.avatarUrl, body]
+       SELECT $1, id, $3, $4, $5, $6, $7, $8 FROM applications WHERE key = $2 AND status = 'active'
+        RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, rejection_code AS "rejectionCode", created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
+      [ulid(), applicationKey, articleKey, member.accountId, member.name, member.avatarUrl, body, status]
       );
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
@@ -63,7 +66,7 @@ export class CommentsService {
     }
     values.push(limit + 1);
     const result = await this.database.query<DatabaseCommentRecord>(
-      `WITH roots AS (SELECT c.id, c.article_key AS "articleKey", c.root_comment_id AS "rootCommentId", c.author_id AS "authorId", c.author_name AS "authorName", c.author_avatar_url AS "authorAvatarUrl", CASE WHEN c.status = 'deleted' THEN '此評論已被 01 管理員刪除' ELSE c.body END AS body, c.status, c.created_at AS "createdAt", c.created_at::text AS "cursorCreatedAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = c.id AND child.status = 'published') AS "replyCount", CASE WHEN c.status = 'deleted' THEN 0 ELSE (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = c.id) END AS reactions FROM comments c JOIN applications a ON a.id = c.application_id WHERE a.key = $1 AND a.status = 'active' AND c.article_key = $2 AND c.root_comment_id IS NULL AND c.status IN ('published', 'deleted') AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = c.application_id AND mute.member_id = $3 AND mute.muted_member_id = c.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = c.application_id AND report.reporter_id = $3 AND report.comment_id = c.id)), stats AS (SELECT roots.*, ("replyCount" + reactions) AS heat FROM roots) SELECT id, "articleKey", "rootCommentId", "authorId", "authorName", "authorAvatarUrl", body, status, "createdAt", "cursorCreatedAt", "replyCount", heat FROM stats WHERE true ${cursorClause} ORDER BY ${orderBy} LIMIT $${values.length}`,
+      `WITH roots AS (SELECT c.id, c.article_key AS "articleKey", c.root_comment_id AS "rootCommentId", c.author_id AS "authorId", c.author_name AS "authorName", c.author_avatar_url AS "authorAvatarUrl", CASE WHEN c.status = 'deleted' THEN '此評論已被 01 管理員刪除' ELSE c.body END AS body, c.status, CASE WHEN c.author_id = $3 AND c.status = 'rejected' THEN c.rejection_code ELSE NULL END AS "rejectionCode", c.created_at AS "createdAt", c.created_at::text AS "cursorCreatedAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = c.id AND child.status = 'published') AS "replyCount", CASE WHEN c.status = 'deleted' THEN 0 ELSE (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = c.id) END AS reactions FROM comments c JOIN applications a ON a.id = c.application_id WHERE a.key = $1 AND a.status = 'active' AND c.article_key = $2 AND c.root_comment_id IS NULL AND (c.status IN ('published', 'deleted') OR (c.author_id = $3 AND c.status IN ('pending', 'rejected'))) AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = c.application_id AND mute.member_id = $3 AND mute.muted_member_id = c.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = c.application_id AND report.reporter_id = $3 AND report.comment_id = c.id)), stats AS (SELECT roots.*, ("replyCount" + reactions) AS heat FROM roots) SELECT id, "articleKey", "rootCommentId", "authorId", "authorName", "authorAvatarUrl", body, status, "rejectionCode", "createdAt", "cursorCreatedAt", "replyCount", heat FROM stats WHERE true ${cursorClause} ORDER BY ${orderBy} LIMIT $${values.length}`,
       values
     );
     return this.page(result.rows, limit, sort);
@@ -75,13 +78,14 @@ export class CommentsService {
       const replay = await this.replay(database, applicationKey, member.accountId, idempotencyKey);
       if (replay) return replay;
       await this.assertPostingAllowed(database, applicationKey, member);
+      const status = await this.initialStatus(database, applicationKey, body);
       const result = await database.query<CommentRecord>(
       `INSERT INTO comments (id, application_id, article_key, root_comment_id, author_id, author_name, author_avatar_url, body, status)
-       SELECT $1, parent.application_id, parent.article_key, parent.id, $4, $5, $6, $7, 'published'
+       SELECT $1, parent.application_id, parent.article_key, parent.id, $4, $5, $6, $7, $8
        FROM comments parent JOIN applications ON applications.id = parent.application_id
        WHERE applications.key = $2 AND applications.status = 'active' AND parent.id = $3 AND parent.root_comment_id IS NULL AND parent.status = 'published'
-        RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
-      [ulid(), applicationKey, rootCommentId, member.accountId, member.name, member.avatarUrl, body]
+        RETURNING id, article_key AS "articleKey", root_comment_id AS "rootCommentId", author_id AS "authorId", author_name AS "authorName", author_avatar_url AS "authorAvatarUrl", body, status, rejection_code AS "rejectionCode", created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat`,
+      [ulid(), applicationKey, rootCommentId, member.accountId, member.name, member.avatarUrl, body, status]
       );
       if (result.rowCount !== 1) throw new NotFoundException();
       await this.remember(database, applicationKey, member.accountId, idempotencyKey, result.rows[0].id);
@@ -96,9 +100,9 @@ export class CommentsService {
     if (parsedCursor) { values.push(parsedCursor.createdAt, parsedCursor.id); cursorClause = 'AND (child.created_at, child.id) > ($4, $5)'; }
     values.push(limit + 1);
     const result = await this.database.query<DatabaseCommentRecord>(
-      `SELECT child.id, child.article_key AS "articleKey", child.root_comment_id AS "rootCommentId", child.author_id AS "authorId", child.author_name AS "authorName", child.author_avatar_url AS "authorAvatarUrl", child.body, child.status, child.created_at AS "createdAt", child.created_at::text AS "cursorCreatedAt", 0::integer AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = child.id) AS heat
+      `SELECT child.id, child.article_key AS "articleKey", child.root_comment_id AS "rootCommentId", child.author_id AS "authorId", child.author_name AS "authorName", child.author_avatar_url AS "authorAvatarUrl", child.body, child.status, CASE WHEN child.author_id = $3 AND child.status = 'rejected' THEN child.rejection_code ELSE NULL END AS "rejectionCode", child.created_at AS "createdAt", child.created_at::text AS "cursorCreatedAt", 0::integer AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = child.id) AS heat
        FROM comments child JOIN applications ON applications.id = child.application_id
-      WHERE applications.key = $1 AND applications.status = 'active' AND child.root_comment_id = $2 AND child.status = 'published' AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = child.application_id AND mute.member_id = $3 AND mute.muted_member_id = child.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = child.application_id AND report.reporter_id = $3 AND report.comment_id = child.id) ${cursorClause}
+      WHERE applications.key = $1 AND applications.status = 'active' AND child.root_comment_id = $2 AND (child.status = 'published' OR (child.author_id = $3 AND child.status IN ('pending', 'rejected'))) AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = child.application_id AND mute.member_id = $3 AND mute.muted_member_id = child.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = child.application_id AND report.reporter_id = $3 AND report.comment_id = child.id) ${cursorClause}
        ORDER BY child.created_at ASC, child.id ASC LIMIT $${values.length}`,
       values
     );
@@ -107,7 +111,7 @@ export class CommentsService {
 
   async batch(applicationKey: string, memberId: string, articleKeys: string[]): Promise<{ items: BatchArticleComments[] }> {
     const result = await this.database.query<CommentRecord & { articleKey: string; commentCount: string; laughCount: string; cryCount: string; cheerCount: string; rank: string }>(
-      `WITH scoped AS (SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = comment.id AND child.status = 'published') AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = comment.id) AS heat, row_number() OVER (PARTITION BY comment.article_key ORDER BY comment.created_at DESC, comment.id DESC)::text AS rank FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.root_comment_id IS NULL AND comment.status = 'published' AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = comment.application_id AND mute.member_id = $3 AND mute.muted_member_id = comment.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = comment.application_id AND report.reporter_id = $3 AND report.comment_id = comment.id)), totals AS (SELECT comment.article_key AS "articleKey", count(DISTINCT comment.id)::text AS "commentCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'laugh')::text AS "laughCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cry')::text AS "cryCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cheer')::text AS "cheerCount" FROM comments comment JOIN applications application ON application.id = comment.application_id LEFT JOIN comment_reactions reaction ON reaction.comment_id = comment.id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.status = 'published' GROUP BY comment.article_key) SELECT scoped.*, totals."commentCount", totals."laughCount", totals."cryCount", totals."cheerCount" FROM scoped JOIN totals USING ("articleKey") WHERE scoped.rank::integer <= 3 ORDER BY scoped."articleKey", scoped."createdAt" DESC, scoped.id DESC`,
+      `WITH scoped AS (SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.rejection_code AS "rejectionCode", comment.created_at AS "createdAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = comment.id AND child.status = 'published') AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = comment.id) AS heat, row_number() OVER (PARTITION BY comment.article_key ORDER BY comment.created_at DESC, comment.id DESC)::text AS rank FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.root_comment_id IS NULL AND comment.status = 'published' AND NOT EXISTS (SELECT 1 FROM muted_users mute WHERE mute.application_id = comment.application_id AND mute.member_id = $3 AND mute.muted_member_id = comment.author_id) AND NOT EXISTS (SELECT 1 FROM reports report WHERE report.application_id = comment.application_id AND report.reporter_id = $3 AND report.comment_id = comment.id)), totals AS (SELECT comment.article_key AS "articleKey", count(DISTINCT comment.id)::text AS "commentCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'laugh')::text AS "laughCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cry')::text AS "cryCount", count(reaction.emoji) FILTER (WHERE reaction.emoji = 'cheer')::text AS "cheerCount" FROM comments comment JOIN applications application ON application.id = comment.application_id LEFT JOIN comment_reactions reaction ON reaction.comment_id = comment.id WHERE application.key = $1 AND application.status = 'active' AND comment.article_key = ANY($2::text[]) AND comment.status = 'published' GROUP BY comment.article_key) SELECT scoped.*, totals."commentCount", totals."laughCount", totals."cryCount", totals."cheerCount" FROM scoped JOIN totals USING ("articleKey") WHERE scoped.rank::integer <= 3 ORDER BY scoped."articleKey", scoped."createdAt" DESC, scoped.id DESC`,
       [applicationKey, articleKeys, memberId]
     );
     const byArticle = new Map<string, BatchArticleComments>();
@@ -154,6 +158,17 @@ export class CommentsService {
     return Buffer.from(JSON.stringify(sort === 'relevant' ? { id: comment.id, createdAt, heat: comment.heat } : { id: comment.id, createdAt })).toString('base64url');
   }
 
+  private async initialStatus(database: DatabaseExecutor, applicationKey: string, body: string): Promise<'published' | 'pending'> {
+    const settings = await database.query<{ yidun_moderation_enabled: boolean }>(
+      `SELECT settings.yidun_moderation_enabled FROM application_settings settings JOIN applications application ON application.id = settings.application_id WHERE application.key = $1`,
+      [applicationKey]
+    );
+    if (!settings.rows[0]?.yidun_moderation_enabled) return 'published';
+    if (!this.moderation) return 'published';
+    const verdict = await this.moderation.review(applicationKey, body);
+    return verdict.flagged ? 'pending' : 'published';
+  }
+
   private async assertPostingAllowed(database: DatabaseExecutor, applicationKey: string, member: MemberIdentity): Promise<void> {
     const settings = await database.query<{ application_id: string; comment_interval_seconds: number; daily_comment_limit: number; new_user_cooldown_hours: number }>(
       `SELECT application.id AS application_id, settings.comment_interval_seconds, settings.daily_comment_limit, settings.new_user_cooldown_hours FROM applications application JOIN application_settings settings ON settings.application_id = application.id WHERE application.key = $1 AND application.status = 'active' FOR UPDATE`,
@@ -185,7 +200,7 @@ export class CommentsService {
 
   private async replay(database: DatabaseExecutor, applicationKey: string, memberId: string, key: string | undefined): Promise<CommentRecord | undefined> {
     if (!key) return undefined;
-    const result = await database.query<CommentRecord>(`SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat FROM comment_idempotency_keys idempotency JOIN applications application ON application.id = idempotency.application_id JOIN comments comment ON comment.id = idempotency.comment_id WHERE application.key = $1 AND idempotency.member_id = $2 AND idempotency.key = $3`, [applicationKey, memberId, key]);
+    const result = await database.query<CommentRecord>(`SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.rejection_code AS "rejectionCode", comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat FROM comment_idempotency_keys idempotency JOIN applications application ON application.id = idempotency.application_id JOIN comments comment ON comment.id = idempotency.comment_id WHERE application.key = $1 AND idempotency.member_id = $2 AND idempotency.key = $3`, [applicationKey, memberId, key]);
     return result.rows[0];
   }
 

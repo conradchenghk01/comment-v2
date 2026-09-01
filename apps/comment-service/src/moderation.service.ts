@@ -14,7 +14,7 @@ export class ModerationService {
 
   async pending(applicationKey: string, page: number, pageSize: number): Promise<ConsoleCommentPage> {
     const result = await this.database.query<CommentRecord & { total: string }>(
-      `SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat, count(*) OVER()::text AS total FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND comment.status = 'pending' ORDER BY comment.created_at ASC, comment.id ASC LIMIT $2 OFFSET $3`,
+      `SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.rejection_code AS "rejectionCode", comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat, count(*) OVER()::text AS total FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND comment.status = 'pending' ORDER BY comment.created_at ASC, comment.id ASC LIMIT $2 OFFSET $3`,
       [applicationKey, pageSize, (page - 1) * pageSize]
     );
     const total = Number(result.rows[0]?.total ?? 0);

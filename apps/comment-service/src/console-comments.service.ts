@@ -21,7 +21,7 @@ export class ConsoleCommentsService {
     if (filters.to) { values.push(filters.to); where.push(`comment.created_at < $${values.length}`); }
     values.push(filters.pageSize, (filters.page - 1) * filters.pageSize);
     const result = await this.database.query<CommentRecord & { total: string }>(
-      `SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat, count(*) OVER()::text AS total FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE ${where.join(' AND ')} ORDER BY comment.created_at DESC, comment.id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      `SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.rejection_code AS "rejectionCode", comment.created_at AS "createdAt", 0::integer AS "replyCount", 0::integer AS heat, count(*) OVER()::text AS total FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE ${where.join(' AND ')} ORDER BY comment.created_at DESC, comment.id DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
     const total = Number(result.rows[0]?.total ?? 0);
