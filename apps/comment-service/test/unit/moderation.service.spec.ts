@@ -19,4 +19,12 @@ describe('ModerationService', () => {
     await expect(new ModerationService(database as never, { record } as never).reject('application-key', 'comment-id', 'spam', 'operator-id')).rejects.toBeInstanceOf(NotFoundException);
     expect(record).not.toHaveBeenCalled();
   });
+
+  it('US-34: writes the optional operator note into immutable audit metadata', async () => {
+    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const database = { query, transaction: async (work: (executor: never) => Promise<unknown>) => work({ query } as never) };
+    const record = vi.fn().mockResolvedValue(undefined);
+    await expect(new ModerationService(database as never, { record } as never).reject('application-key', 'comment-id', 'spam', 'operator-id', 'duplicate of earlier spam')).resolves.toBeUndefined();
+    expect(record).toHaveBeenCalledWith(expect.anything(), 'application-key', 'comment.rejected', 'comment', 'comment-id', { rejectionCode: 'spam', note: 'duplicate of earlier spam' }, 'operator-id');
+  });
 });

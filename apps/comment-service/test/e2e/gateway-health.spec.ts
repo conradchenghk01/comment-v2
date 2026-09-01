@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 const gatewayBaseUrl = process.env.E2E_GATEWAY_BASE_URL ?? 'http://localhost:8000';
 
 async function waitForGateway(): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     const response = await fetch(`${gatewayBaseUrl}/v1/health`).catch(() => undefined);
     if (response?.ok) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -90,6 +90,9 @@ describe('application API', () => {
     });
     expect(enableResponse.status).toBe(200);
     await expect(enableResponse.json()).resolves.toMatchObject({ status: 'active' });
+
+    const applicationAuditResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs`, { headers: { ...headers, 'X-Application-Key': application.key } });
+    await expect(applicationAuditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'application.disabled', targetId: application.key, metadata: { status: 'disabled' } }), expect.objectContaining({ action: 'application.renamed', targetId: application.key, metadata: { name: 'Renamed application' } }), expect.objectContaining({ action: 'application.enabled', targetId: application.key, metadata: { status: 'active' } })]) });
   });
 });
 
@@ -128,12 +131,14 @@ describe('public comments API', () => {
     const rejectedOriginResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers: { ...headers, Origin: 'https://untrusted.example.test' } });
     expect(rejectedOriginResponse.status).toBe(403);
     await expect(rejectedOriginResponse.json()).resolves.toMatchObject({ code: 'origin_not_allowed' });
-    const normalBlockResponse = await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'normal' }) });
+    const normalBlockResponse = await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'PUT', headers: operatorHeaders, body: JSON.stringify({ mode: 'normal', note: 'abusive replies' }) });
     expect(normalBlockResponse.status).toBe(204);
     const blockedPostResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Blocked comment' }) });
     expect(blockedPostResponse.status).toBe(403);
     await expect(blockedPostResponse.json()).resolves.toMatchObject({ code: 'normal_blocked' });
-    expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders })).status).toBe(204);
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders, body: JSON.stringify({ note: 'appeal accepted' }) })).status).toBe(204);
+    const blockAuditResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs`, { headers: operatorHeaders });
+    await expect(blockAuditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'user.blocked', targetId: 'local-author', metadata: { mode: 'normal', note: 'abusive replies' } }), expect.objectContaining({ action: 'user.unblocked', targetId: 'local-author', metadata: { note: 'appeal accepted' } })]) });
     const intervalResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { method: 'POST', headers, body: JSON.stringify({ body: 'Too soon' }) });
     expect(intervalResponse.status).toBe(429);
     await expect(intervalResponse.json()).resolves.toMatchObject({ code: 'comment_interval_active', details: { retryAfterSeconds: expect.any(Number) } });

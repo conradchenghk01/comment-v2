@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { ApplicationsService, ApplicationRecord } from './applications.service.js';
 import { LocalOperatorGuard } from './local-operator.guard.js';
@@ -44,7 +45,7 @@ export class ApplicationsController {
   }
 
   @Patch(':key')
-  update(@Param('key') key: string, @Body() body: UpdateApplicationDto): Promise<ApplicationRecord> {
-    return this.applications.update(key, body.name, body.status);
+  update(@Param('key') key: string, @Body() body: UpdateApplicationDto, @Req() request: Request & { operator: { accountId: string } }): Promise<ApplicationRecord> {
+    return this.applications.update(key, body.name, body.status, request.operator.accountId);
   }
 }

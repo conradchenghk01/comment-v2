@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { DatabaseService } from './database.service.js';
+import { AuditLogsService } from './audit-logs.service.js';
 
 export interface ApplicationRecord {
   key: string;
@@ -13,7 +14,7 @@ export interface ApplicationRecord {
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly auditLogs: AuditLogsService) {}
 
   async create(name: string, slug: string): Promise<ApplicationRecord> {
     try {
@@ -45,15 +46,30 @@ export class ApplicationsService {
     return result.rows;
   }
 
-  async update(key: string, name?: string, status?: 'active' | 'disabled'): Promise<ApplicationRecord> {
-    const result = await this.database.query<ApplicationRecord>(
-      `UPDATE applications
-       SET name = COALESCE($2, name), status = COALESCE($3, status), updated_at = now()
-       WHERE key = $1
-       RETURNING key::text, slug, name, status, created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [key, name ?? null, status ?? null]
-    );
-    if (result.rowCount !== 1) throw new NotFoundException();
-    return result.rows[0];
+  async update(key: string, name?: string, status?: 'active' | 'disabled', operatorId?: string): Promise<ApplicationRecord> {
+    const application = await this.database.transaction(async (database) => {
+      const previous = await database.query<{ name: string; status: 'active' | 'disabled' }>(
+        `SELECT name, status FROM applications WHERE key = $1 FOR UPDATE`,
+        [key]
+      );
+      if (previous.rowCount !== 1) throw new NotFoundException();
+      const result = await database.query<ApplicationRecord>(
+        `UPDATE applications
+         SET name = COALESCE($2, name), status = COALESCE($3, status), updated_at = now()
+         WHERE key = $1
+         RETURNING key::text, slug, name, status, created_at AS "createdAt", updated_at AS "updatedAt"`,
+        [key, name ?? null, status ?? null]
+      );
+      if (result.rowCount !== 1) throw new NotFoundException();
+      const record = result.rows[0];
+      if (status && status !== previous.rows[0].status) {
+        await this.auditLogs.recordForApplicationKey(database, key, status === 'disabled' ? 'application.disabled' : 'application.enabled', 'application', key, { status }, operatorId ?? null);
+      }
+      if (name && name !== previous.rows[0].name) {
+        await this.auditLogs.recordForApplicationKey(database, key, 'application.renamed', 'application', key, { name }, operatorId ?? null);
+      }
+      return record;
+    });
+    return application;
   }
 }

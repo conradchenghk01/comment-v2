@@ -21,22 +21,24 @@ export class ModerationService {
     return { items: result.rows.map(({ total: _total, ...comment }) => comment), page, pageSize, total };
   }
 
-  async approve(applicationKey: string, commentId: string, operatorId: string): Promise<void> {
-    await this.transition(applicationKey, commentId, 'published', null, operatorId);
+  async approve(applicationKey: string, commentId: string, operatorId: string, note?: string): Promise<void> {
+    await this.transition(applicationKey, commentId, 'published', null, operatorId, note);
   }
 
-  async reject(applicationKey: string, commentId: string, rejectionCode: RejectionCode, operatorId: string): Promise<void> {
-    await this.transition(applicationKey, commentId, 'rejected', rejectionCode, operatorId);
+  async reject(applicationKey: string, commentId: string, rejectionCode: RejectionCode, operatorId: string, note?: string): Promise<void> {
+    await this.transition(applicationKey, commentId, 'rejected', rejectionCode, operatorId, note);
   }
 
-  private async transition(applicationKey: string, commentId: string, status: 'published' | 'rejected', rejectionCode: RejectionCode | null, operatorId: string): Promise<void> {
+  private async transition(applicationKey: string, commentId: string, status: 'published' | 'rejected', rejectionCode: RejectionCode | null, operatorId: string, note?: string): Promise<void> {
     await this.database.transaction(async (database) => {
       const result = await database.query(
         `UPDATE comments comment SET status = $3, rejection_code = $4 FROM applications application WHERE application.id = comment.application_id AND application.key = $1 AND comment.id = $2 AND comment.status = 'pending'`,
         [applicationKey, commentId, status, rejectionCode]
       );
       if (result.rowCount !== 1) throw new NotFoundException();
-      await this.auditLogs.record(database, applicationKey, `comment.${status === 'published' ? 'approved' : 'rejected'}`, 'comment', commentId, rejectionCode ? { rejectionCode } : {}, operatorId);
+      const metadata: Record<string, unknown> = rejectionCode ? { rejectionCode } : {};
+      if (note) metadata.note = note;
+      await this.auditLogs.record(database, applicationKey, `comment.${status === 'published' ? 'approved' : 'rejected'}`, 'comment', commentId, metadata, operatorId);
     });
     await this.cache?.invalidateHotArticles(applicationKey);
   }

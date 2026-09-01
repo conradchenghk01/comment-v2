@@ -748,6 +748,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveBlockDto"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": ""
@@ -802,6 +812,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationActionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": ""
@@ -838,7 +858,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RejectCommentDto"
+                "$ref": "#/components/schemas/ModerationActionDto"
               }
             }
           }
@@ -1232,7 +1252,11 @@
         "type": "object",
         "properties": {}
       },
-      "RejectCommentDto": {
+      "RemoveBlockDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ModerationActionDto": {
         "type": "object",
         "properties": {}
       },

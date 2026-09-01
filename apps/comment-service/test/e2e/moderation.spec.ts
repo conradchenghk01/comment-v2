@@ -1,9 +1,20 @@
 import { execFileSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const gatewayBaseUrl = process.env.E2E_GATEWAY_BASE_URL ?? 'http://localhost:8000';
 
+async function waitForGateway(): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const response = await fetch(`${gatewayBaseUrl}/v1/health`).catch(() => undefined);
+    if (response?.ok) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error('Kong gateway did not become ready');
+}
+
 describe('console moderation API', () => {
+  beforeAll(waitForGateway);
+
   it('US-34: lists and transitions pending comments only within the selected application', async () => {
     const operatorResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/operator/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'operator', password: 'change-me-local-only' })
@@ -21,11 +32,11 @@ describe('console moderation API', () => {
     expect(pendingResponse.status).toBe(200);
     await expect(pendingResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: commentIds[0], status: 'pending' }), expect.objectContaining({ id: commentIds[1], status: 'pending' })]), total: 2 });
     expect((await fetch(`${gatewayBaseUrl}/v1/console/moderation/comments/${commentIds[0]}/approve`, { method: 'POST', headers })).status).toBe(204);
-    expect((await fetch(`${gatewayBaseUrl}/v1/console/moderation/comments/${commentIds[1]}/reject`, { method: 'POST', headers, body: JSON.stringify({ rejectionCode: 'spam' }) })).status).toBe(204);
+    expect((await fetch(`${gatewayBaseUrl}/v1/console/moderation/comments/${commentIds[1]}/reject`, { method: 'POST', headers, body: JSON.stringify({ rejectionCode: 'spam', note: 'clear spam pattern' }) })).status).toBe(204);
     const commentsResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments?pageSize=50`, { headers });
     await expect(commentsResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: commentIds[0], status: 'published' }), expect.objectContaining({ id: commentIds[1], status: 'rejected' })]) });
     const auditResponse = await fetch(`${gatewayBaseUrl}/v1/console/audit-logs`, { headers });
     expect(auditResponse.status).toBe(200);
-    await expect(auditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'comment.approved', targetId: commentIds[0], operatorId: 'local-operator' }), expect.objectContaining({ action: 'comment.rejected', targetId: commentIds[1], operatorId: 'local-operator', metadata: { rejectionCode: 'spam' } })]), total: 2 });
+    await expect(auditResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ action: 'comment.approved', targetId: commentIds[0], operatorId: 'local-operator' }), expect.objectContaining({ action: 'comment.rejected', targetId: commentIds[1], operatorId: 'local-operator', metadata: { rejectionCode: 'spam', note: 'clear spam pattern' } })]), total: 2 });
   });
 });

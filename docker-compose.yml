@@ -59,6 +59,11 @@ services:
       - "8000:8000"
     volumes:
       - ./infra/kong/kong.local.yml:/kong/declarative/kong.yml:ro
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
       comment-service:
         condition: service_healthy
@@ -72,7 +77,8 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - kong
+      kong:
+        condition: service_healthy
 
   developer-lab:
     build:
@@ -83,7 +89,8 @@ services:
     ports:
       - "5174:80"
     depends_on:
-      - kong
+      kong:
+        condition: service_healthy
 
 volumes:
   postgres-data:

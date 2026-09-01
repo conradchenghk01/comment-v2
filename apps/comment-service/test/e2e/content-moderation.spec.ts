@@ -1,6 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const gatewayBaseUrl = process.env.E2E_GATEWAY_BASE_URL ?? 'http://localhost:8000';
+
+async function waitForGateway(): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const response = await fetch(`${gatewayBaseUrl}/v1/health`).catch(() => undefined);
+    if (response?.ok) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error('Kong gateway did not become ready');
+}
 
 interface MemberTokenResponse { accessToken: string; }
 
@@ -19,6 +28,8 @@ async function memberToken(user: string): Promise<string> {
 }
 
 describe('content moderation flow', () => {
+  beforeAll(waitForGateway);
+
   it('US-14/US-6/US-7: routes sensitive-word hits to pending, hides them from others, and exposes rejectionCode to the author', async () => {
     const operatorToken = await operatorLogin();
     const createResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, {
