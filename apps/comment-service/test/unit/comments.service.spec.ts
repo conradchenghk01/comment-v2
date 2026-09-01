@@ -84,7 +84,25 @@ describe('CommentsService', () => {
     const replay = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'member', authorName: 'Member', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', rejectionCode: null, createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0 };
     const query = vi.fn().mockResolvedValue({ rows: [replay] });
     const idempotentService = new CommentsService({ query, transaction: async (work: (database: never) => Promise<unknown>) => work({ query } as never) } as never);
-    await expect(idempotentService.create('app', 'article', 'Comment', { accountId: 'member', name: 'Member', avatarUrl: 'avatar', createdAt: '2026-01-01T00:00:00Z' }, 'key')).resolves.toEqual(replay);
+    await expect(idempotentService.create('app', 'article', 'Comment', { accountId: 'member', name: 'Member', avatarUrl: 'avatar', createdAt: '2026-01-01T00:00:00Z' }, 'key')).resolves.toMatchObject(replay);
     expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('US-5/US-19: list payloads include per-emoji counts and the caller reaction state', async () => {
+    const row = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'author', authorName: 'Author', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', rejectionCode: null, createdAt: '2026-01-01T00:00:00.000Z', cursorCreatedAt: '2026-01-01 00:00:00+00', replyCount: 0, heat: 3, laughCount: 1, cryCount: 1, cheerCount: 1, viewerReactions: ['laugh', 'cry'], viewerTripleUsed: false };
+    const query = vi.fn().mockResolvedValue({ rows: [row] });
+    const listService = new CommentsService({ query } as never);
+    const page = await listService.list('app', 'article', 'member', 'relevant', undefined, 20);
+    expect(page.items[0]).toMatchObject({ id: 'comment', reactionCounts: { laugh: 1, cry: 1, cheer: 1 }, viewerReactions: ['laugh', 'cry'], viewerTripleUsed: false });
+    expect(page.items[0]).not.toHaveProperty('laughCount');
+    expect(page.items[0]).not.toHaveProperty('cursorCreatedAt');
+  });
+
+  it('US-5/US-19: branch payloads include per-emoji counts and the caller reaction state', async () => {
+    const row = { id: 'reply', articleKey: 'article', rootCommentId: 'root', authorId: 'author', authorName: 'Author', authorAvatarUrl: 'avatar', body: 'Reply', status: 'published', rejectionCode: null, createdAt: '2026-01-01T00:00:00.000Z', cursorCreatedAt: '2026-01-01 00:00:00+00', replyCount: 0, heat: 0, laughCount: 0, cryCount: 0, cheerCount: 0, viewerReactions: null, viewerTripleUsed: false };
+    const query = vi.fn().mockResolvedValue({ rows: [row] });
+    const branchService = new CommentsService({ query } as never);
+    const page = await branchService.branch('app', 'root', 'member', undefined, 20);
+    expect(page.items[0]).toMatchObject({ id: 'reply', reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false });
   });
 });

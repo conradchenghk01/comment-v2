@@ -155,7 +155,7 @@ describe('public comments API', () => {
     expect(repeatedTriple.status).toBe(409);
     const listResponse = await fetch(`${gatewayBaseUrl}/v1/articles/${articleKey}/comments`, { headers });
     expect(listResponse.status).toBe(200);
-    await expect(listResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, replyCount: 0, heat: 3 })]), nextCursor: null });
+    await expect(listResponse.json()).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: comment.id, replyCount: 0, heat: 3, reactionCounts: { laugh: 1, cry: 1, cheer: 1 }, viewerReactions: ['cheer', 'cry', 'laugh'], viewerTripleUsed: true })]), nextCursor: null });
 
     const replyIdempotencyKey = `reply-${Date.now()}`;
     const replyResponse = await fetch(`${gatewayBaseUrl}/v1/comments/${comment.id}/replies`, { method: 'POST', headers: { ...reactorHeaders, 'Idempotency-Key': replyIdempotencyKey }, body: JSON.stringify({ body: 'First reply' }) });
