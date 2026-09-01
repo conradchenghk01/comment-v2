@@ -2,6 +2,8 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { OriginsService } from './origins.service.js';
 
+const localToolOrigins = new Set(['http://localhost:5173', 'http://localhost:5174']);
+
 @Injectable()
 export class OriginGuardMiddleware implements NestMiddleware {
   constructor(private readonly origins: OriginsService) {}
@@ -9,7 +11,7 @@ export class OriginGuardMiddleware implements NestMiddleware {
   async use(request: Request, response: Response, next: NextFunction): Promise<void> {
     const origin = request.header('origin');
     if (!origin) return next();
-    if (process.env.APP_ENV === 'local' && origin === 'http://localhost:5174') {
+    if (process.env.APP_ENV === 'local' && localToolOrigins.has(origin)) {
       this.allow(response, origin);
       if (request.method === 'OPTIONS') { response.status(204).end(); return; }
       return next();
