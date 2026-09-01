@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { Type } from 'class-transformer';
 import { IsDateString, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ConsoleCommentFilters, ConsoleCommentPage, ConsoleCommentsService } from './console-comments.service.js';
+import { CommentRecord } from './comments.service.js';
 import { LocalOperatorGuard } from './local-operator.guard.js';
 
 class ListConsoleCommentsDto implements ConsoleCommentFilters {
@@ -25,6 +26,11 @@ export class ConsoleCommentsController {
   @Get()
   list(@Headers('x-application-key') applicationKey: string, @Query() query: ListConsoleCommentsDto): Promise<ConsoleCommentPage> {
     return this.comments.list(applicationKey, query);
+  }
+
+  @Get(':commentId')
+  find(@Headers('x-application-key') applicationKey: string, @Param('commentId') commentId: string): Promise<CommentRecord> {
+    return this.comments.find(applicationKey, commentId);
   }
 
   @Delete(':commentId')

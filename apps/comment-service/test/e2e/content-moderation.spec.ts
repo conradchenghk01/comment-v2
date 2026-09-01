@@ -51,6 +51,13 @@ describe('content moderation flow', () => {
     const clean = await cleanResponse.json() as { id: string; status: string };
     expect(clean.status).toBe('published');
 
+    // US-28f: the console can look up a single comment by ID.
+    const findResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments/${clean.id}`, { headers: consoleHeaders });
+    expect(findResponse.status).toBe(200);
+    await expect(findResponse.json()).resolves.toMatchObject({ id: clean.id, status: 'published', body: 'A perfectly clean comment' });
+    const missingFindResponse = await fetch(`${gatewayBaseUrl}/v1/console/comments/${'x'.repeat(26)}`, { headers: consoleHeaders });
+    expect(missingFindResponse.status).toBe(404);
+
     // US-6: the author sees their own pending comment.
     const authorListResponse = await fetch(`${gatewayBaseUrl}/v1/articles/moderation-article/comments?sort=newest`, { headers: memberHeaders(authorToken) });
     const authorList = await authorListResponse.json() as { items: Array<{ id: string; status: string; rejectionCode: string | null }> };

@@ -462,6 +462,35 @@
       }
     },
     "/v1/console/comments/{commentId}": {
+      "get": {
+        "operationId": "ConsoleCommentsController_find",
+        "parameters": [
+          {
+            "name": "x-application-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ConsoleComments"
+        ]
+      },
       "delete": {
         "operationId": "ConsoleCommentsController_delete",
         "parameters": [

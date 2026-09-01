@@ -28,6 +28,16 @@ export class ConsoleCommentsService {
     return { items: result.rows.map(({ total: _total, ...comment }) => comment), page: filters.page, pageSize: filters.pageSize, total };
   }
 
+  /** US-28f: fetch a single comment by ID within the selected application. */
+  async find(applicationKey: string, commentId: string): Promise<CommentRecord> {
+    const result = await this.database.query<CommentRecord>(
+      `SELECT comment.id, comment.article_key AS "articleKey", comment.root_comment_id AS "rootCommentId", comment.author_id AS "authorId", comment.author_name AS "authorName", comment.author_avatar_url AS "authorAvatarUrl", comment.body, comment.status, comment.rejection_code AS "rejectionCode", comment.created_at AS "createdAt", (SELECT count(*)::integer FROM comments child WHERE child.root_comment_id = comment.id AND child.status = 'published') AS "replyCount", (SELECT count(*)::integer FROM comment_reactions reaction WHERE reaction.comment_id = comment.id) AS heat FROM comments comment JOIN applications application ON application.id = comment.application_id WHERE application.key = $1 AND comment.id = $2`,
+      [applicationKey, commentId]
+    );
+    if (result.rowCount !== 1) throw new NotFoundException();
+    return result.rows[0];
+  }
+
   async delete(applicationKey: string, commentId: string, operatorId: string): Promise<void> {
     await this.database.transaction(async (database) => {
       const result = await database.query(

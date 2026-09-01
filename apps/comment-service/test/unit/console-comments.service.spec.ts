@@ -26,4 +26,18 @@ describe('ConsoleCommentsService', () => {
     await expect(service.bulkDeleteByArticle('app', 'article', 'operator-id')).resolves.toEqual({ deletedCount: 3 });
     expect(record).toHaveBeenCalledWith(expect.anything(), 'app', 'comments.bulk_deleted_by_article', 'article', 'article', { deletedCount: 3 }, 'operator-id');
   });
+
+  it('US-28f: finds a single comment by ID within the selected application', async () => {
+    const row = { id: 'comment', articleKey: 'article', rootCommentId: null, authorId: 'author', authorName: 'Author', authorAvatarUrl: 'avatar', body: 'Comment', status: 'published', rejectionCode: null, createdAt: '2026-01-01T00:00:00.000Z', replyCount: 0, heat: 0 };
+    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [row] });
+    const service = new ConsoleCommentsService({ query } as never);
+    await expect(service.find('app', 'comment')).resolves.toEqual(row);
+    expect(query.mock.calls[0]?.[0]).toContain('comment.id = $2');
+  });
+
+  it('US-28f: returns 404 when the comment belongs to another application', async () => {
+    const query = vi.fn().mockResolvedValue({ rowCount: 0, rows: [] });
+    const service = new ConsoleCommentsService({ query } as never);
+    await expect(service.find('app', 'other-app-comment')).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
