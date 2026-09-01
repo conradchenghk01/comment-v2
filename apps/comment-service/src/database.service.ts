@@ -11,6 +11,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
   async onModuleInit(): Promise<void> {
+    await this.applySchema();
+
+    if (process.env.APP_ENV === 'local') {
+      const username = process.env.LOCAL_OPERATOR_USERNAME ?? 'operator';
+      const password = process.env.LOCAL_OPERATOR_PASSWORD ?? 'change-me-local-only';
+      const passwordHash = await bcrypt.hash(password, 12);
+      await this.pool.query(
+        `INSERT INTO local_operators (username, password_hash) VALUES ($1, $2)
+         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+        [username, passwordHash]
+      );
+    }
+  }
+
+  async applySchema(): Promise<void> {
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS local_operators (
         username TEXT PRIMARY KEY,
@@ -110,17 +125,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (application_id, normalized_word)
       );
     `);
-
-    if (process.env.APP_ENV === 'local') {
-      const username = process.env.LOCAL_OPERATOR_USERNAME ?? 'operator';
-      const password = process.env.LOCAL_OPERATOR_PASSWORD ?? 'change-me-local-only';
-      const passwordHash = await bcrypt.hash(password, 12);
-      await this.pool.query(
-        `INSERT INTO local_operators (username, password_hash) VALUES ($1, $2)
-         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
-        [username, passwordHash]
-      );
-    }
   }
 
   query<T extends QueryResultRow>(text: string, values: unknown[] = []) {

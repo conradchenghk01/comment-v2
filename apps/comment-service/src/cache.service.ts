@@ -21,6 +21,10 @@ export class CacheService implements OnModuleDestroy {
     try { await this.redis.del(Array.from({ length: 50 }, (_, index) => this.hotKey(applicationKey, index + 1))); } catch { /* Cache availability must not affect writes. */ }
   }
 
+  async flushAll(): Promise<void> {
+    try { await this.redis.flushdb(); } catch { /* Cache availability must not affect the reset. */ }
+  }
+
   async onModuleDestroy(): Promise<void> { this.redis.disconnect(); }
 
   private hotKey(applicationKey: string, limit: number): string { return `comment:${applicationKey}:hot:${limit}`; }

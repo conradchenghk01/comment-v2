@@ -253,3 +253,31 @@ describe('public comments API', () => {
     expect((await fetch(`${gatewayBaseUrl}/v1/console/users/local-author/block`, { method: 'DELETE', headers: operatorHeaders })).status).toBe(204);
   });
 });
+
+describe('local reset API', () => {
+  it('US-local-reset: wipes all application data and recreates the schema', async () => {
+    const operatorResponse = await fetch(`${gatewayBaseUrl}/v1/local/auth/operator/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'operator', password: 'change-me-local-only' })
+    });
+    const operatorToken = (await operatorResponse.json() as { accessToken: string }).accessToken;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${operatorToken}` };
+    const slug = `reset-${Date.now()}`;
+    const createResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { method: 'POST', headers, body: JSON.stringify({ name: 'Reset target', slug }) });
+    expect(createResponse.status).toBe(201);
+    const application = await createResponse.json() as { key: string };
+
+    const resetResponse = await fetch(`${gatewayBaseUrl}/v1/local/reset`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'RESET' }) });
+    expect(resetResponse.status).toBe(200);
+    await expect(resetResponse.json()).resolves.toEqual({ status: 'reset' });
+
+    const listResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { headers });
+    expect(listResponse.status).toBe(200);
+    await expect(listResponse.json()).resolves.toEqual([]);
+
+    const settingsResponse = await fetch(`${gatewayBaseUrl}/v1/console/settings`, { headers: { ...headers, 'X-Application-Key': application.key } });
+    expect(settingsResponse.status).toBe(404);
+
+    const recreateResponse = await fetch(`${gatewayBaseUrl}/v1/console/applications`, { method: 'POST', headers, body: JSON.stringify({ name: 'After reset', slug: `after-reset-${Date.now()}` }) });
+    expect(recreateResponse.status).toBe(201);
+  });
+});
