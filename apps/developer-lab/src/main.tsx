@@ -24,6 +24,8 @@ interface LabComment {
 interface ReactionState { counts: { laugh: number; cry: number; cheer: number }; active: string[]; tripleUsed: boolean; }
 type Emoji = 'laugh' | 'cry' | 'cheer';
 const emojiLabels: Record<Emoji, string> = { laugh: '😂', cry: '😭', cheer: '🎉' };
+const reportReasons = ['spam', 'harassment', 'hate', 'misinformation', 'sexual_content', 'violence'] as const;
+type ReportReason = (typeof reportReasons)[number];
 
 function Lab() {
   const [locale, setLocale] = useState<Locale>(() => resolveLocale(window.localStorage.getItem(localeStorageKey)));
@@ -39,6 +41,8 @@ function Lab() {
   const [result, setResult] = useState<string | null>(null);
   const [comments, setComments] = useState<LabComment[]>([]);
   const [replyTarget, setReplyTarget] = useState<LabComment | null>(null);
+  const [reportTarget, setReportTarget] = useState<LabComment | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason>('spam');
 
   function switchLocale(next: Locale): void {
     setLocale(next);
@@ -88,6 +92,7 @@ function Lab() {
     setMemberToken('');
     setComments([]);
     setReplyTarget(null);
+    setReportTarget(null);
     setResult(JSON.stringify({ status: 200, payload: { message: t('resetDone') } }, null, 2));
   }
 
@@ -127,6 +132,21 @@ function Lab() {
     setComments((current) => updateComment(current, comment.id, (entry) => ({ ...entry, reactionCounts: state.counts, viewerReactions: state.active, viewerTripleUsed: state.tripleUsed })));
   }
 
+  async function submitReport(): Promise<void> {
+    const target = reportTarget;
+    if (!target) return;
+    const status = await requestRawStatus(`/v1/comments/${encodeURIComponent(target.id)}/reports`, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ reasonCategory: reportReason }) });
+    setReportTarget(null);
+    if (status === 204) {
+      await listComments();
+      setResult(JSON.stringify({ status, payload: { message: t('reportDone') } }, null, 2));
+    }
+  }
+
+  function requestRawStatus(path: string, options: RequestInit): Promise<number> {
+    return fetch(`${apiBase}${path}`, options).then((response) => response.status);
+  }
+
   function renderComment(comment: LabComment) {
     const canReact = Boolean(memberToken && applicationKey);
     return <article key={comment.id} className={comment.rootCommentId ? 'comment reply' : 'comment'}>
@@ -136,6 +156,7 @@ function Lab() {
         {(['laugh', 'cry', 'cheer'] as const).map((emoji) => <button key={emoji} type="button" className={`emoji${comment.viewerReactions.includes(emoji) ? ' active' : ''}`} disabled={!canReact} onClick={() => void toggleReaction(comment, emoji)}>{emojiLabels[emoji]} {comment.reactionCounts[emoji]}</button>)}
         <button type="button" className="triple" disabled={!canReact || comment.viewerTripleUsed} onClick={() => void tripleReaction(comment)}>{t('triple')}</button>
         {!comment.rootCommentId && <button type="button" className="link" disabled={!canReact} onClick={() => setReplyTarget(comment)}>{t('reply')}</button>}
+        <button type="button" className="link danger-link" disabled={!canReact} onClick={() => setReportTarget(comment)}>{t('report')}</button>
       </div>
       {(comment.replies?.length ?? 0) > 0 && <div className="replies">{comment.replies!.map((child) => renderComment(child))}</div>}
     </article>;
@@ -191,6 +212,16 @@ function Lab() {
             <button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>{t('listComments')}</button>
           </div>
         </form>
+        {reportTarget && <div className="report-dialog">
+          <strong>{t('reportReason')}</strong>
+          <select value={reportReason} onChange={(event) => setReportReason(event.target.value as ReportReason)}>
+            {reportReasons.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+          </select>
+          <div className="actions">
+            <button type="button" onClick={() => void submitReport()}>{t('reportSubmit')}</button>
+            <button type="button" onClick={() => setReportTarget(null)}>{t('reportCancel')}</button>
+          </div>
+        </div>}
         <div className="comment-board">
           <h2>{t('commentBoard')}</h2>
           {comments.length === 0 ? <p className="no-comments">{t('noComments')}</p> : <div className="comment-thread">{comments.map((comment) => renderComment(comment))}</div>}

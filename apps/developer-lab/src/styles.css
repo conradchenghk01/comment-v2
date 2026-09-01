@@ -20,3 +20,6 @@
 .replies { display: grid; gap: 10px; border-left: 2px solid #c5d6cc; padding-left: 12px; margin-top: 4px; }
 .reply-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed #7b9889; background: #eef5ef; padding: 8px 10px; font-size: 12px; margin-bottom: 10px; }
 .reply-target button { padding: 4px 10px; font-size: 12px; }
+.comment-actions button.danger-link { background: transparent; color: #a63d40; border-color: transparent; text-decoration: underline; padding: 4px 6px; }
+.comment-actions button.danger-link:disabled { background: transparent; border-color: transparent; color: #9aa9a0; }
+.report-dialog { display: grid; gap: 8px; border: 1px solid #a63d40; background: #fdf3f3; padding: 12px; margin: 12px 0; font-size: 12px; }

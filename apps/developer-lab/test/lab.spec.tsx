@@ -221,4 +221,24 @@ describe('Lab comment board interactions', () => {
     await act(async () => { click(findButton('取消回覆')); });
     expect(container.textContent).not.toContain('回覆給：');
   });
+
+  it('opens the report dialog and submits a report, hiding the comment after refresh', async () => {
+    await signInAndLoadBoard();
+    fetchCalls.length = 0;
+    await act(async () => { click(findButton('檢舉')); });
+    expect(container.textContent).toContain('檢舉原因');
+    await act(async () => { click(findButton('送出檢舉')); });
+    const reportCall = fetchCalls.find((call) => call.path.includes('/reports'));
+    expect(reportCall?.method).toBe('POST');
+    expect(reportCall?.body).toContain('"reasonCategory":"spam"');
+  });
+
+  it('cancels the report dialog without submitting', async () => {
+    await signInAndLoadBoard();
+    fetchCalls.length = 0;
+    await act(async () => { click(findButton('檢舉')); });
+    await act(async () => { click(findButton('取消檢舉')); });
+    expect(fetchCalls.find((call) => call.path.includes('/reports'))).toBeUndefined();
+    expect(container.textContent).not.toContain('檢舉原因');
+  });
 });

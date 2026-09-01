@@ -32,6 +32,13 @@ const zh = {
   cancelReply: '取消回覆',
   replyingTo: '回覆給：',
   triple: '3連',
+  report: '檢舉',
+  reportOwnComment: '無法檢舉自己的留言',
+  reportReason: '檢舉原因',
+  reportSubmit: '送出檢舉',
+  reportCancel: '取消檢舉',
+  reportDone: '已檢舉。該留言及其子留言已隱藏（僅對你隱藏）。',
+  reportedAlready: '你已檢舉過這則留言。',
   noComments: '尚無留言。發佈第一則，或按「查看留言」重新整理。',
   response: 'API 回應',
   ready: '就緒。先以本地操作員登入，建立或選擇應用，再取得用戶 token。',
@@ -68,6 +75,13 @@ const en: Record<TranslationKey, string> = {
   cancelReply: 'Cancel reply',
   replyingTo: 'Replying to:',
   triple: 'Triple',
+  report: 'Report',
+  reportOwnComment: 'Cannot report your own comment',
+  reportReason: 'Report reason',
+  reportSubmit: 'Submit report',
+  reportCancel: 'Cancel report',
+  reportDone: 'Reported. That comment and its replies are now hidden (for you only).',
+  reportedAlready: 'You already reported this comment.',
   noComments: 'No comments yet. Post the first one, or press "List comments" to refresh.',
   response: 'API response',
   ready: 'Ready. Sign in as the local operator, create or select an application, then issue a member token.',
@@ -104,7 +118,7 @@ export const guide: Record<Locale, GuideStep[]> = {
     },
     {
       title: '發佈與查看留言',
-      body: '填入文章 key（同一篇文章必須使用同一個 key），撰寫內容後按「發佈留言」，下方列表會即時顯示留言與回覆。在留言上按「回覆」可撰寫子留言；😂/😭/🎉 按鈕可加入或取消表情反應，「3連」一次送出三個表情（每帳號限一次）。每個請求的完整 API 回應都會顯示在回應區。'
+      body: '填入文章 key（同一篇文章必須使用同一個 key），撰寫內容後按「發佈留言」，下方列表會即時顯示留言與回覆。在留言上按「回覆」可撰寫子留言；😂/😭/🎉 按鈕可加入或取消表情反應，「3連」一次送出三個表情（每帳號限一次）；「檢舉」可檢舉他人的留言——檢舉後該留言（含子留言）會對你完全隱藏，但其他人仍看得到。每個請求的完整 API 回應都會顯示在回應區。'
     },
     {
       title: '完全重置（危險操作）',
@@ -126,7 +140,7 @@ export const guide: Record<Locale, GuideStep[]> = {
     },
     {
       title: 'Post and list comments',
-      body: 'Set the article key (the same article must use the same key), write the comment, and press "Post comment" — the board below refreshes with roots and replies. Press "Reply" on a comment to compose a sub-comment; the 😂/😭/🎉 buttons toggle emoji reactions, and "Triple" fires all three at once (once per account). The full API response for each request appears in the response panel below.'
+      body: 'Set the article key (the same article must use the same key), write the comment, and press "Post comment" — the board below refreshes with roots and replies. Press "Reply" on a comment to compose a sub-comment; the 😂/😭/🎉 buttons toggle emoji reactions, "Triple" fires all three at once (once per account); "Report" reports someone else\'s comment — once reported, that comment (and its replies) is hidden entirely for you, while others still see it. The full API response for each request appears in the response panel below.'
     },
     {
       title: 'Full reset (dangerous)',
