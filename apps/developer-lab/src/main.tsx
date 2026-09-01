@@ -1,13 +1,18 @@
 import { FormEvent, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import './styles.css';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const users = ['author', 'reactor', 'reporter-one', 'reporter-two', 'reporter-three', 'reporter-four', 'reporter-five', 'new-user'];
+const localeStorageKey = 'comment-lab-locale';
 
 interface Application { key: string; name: string; slug: string; status: string; }
 
 function Lab() {
+  const [locale, setLocale] = useState<Locale>(() => resolveLocale(window.localStorage.getItem(localeStorageKey)));
+  const t = createT(locale);
+  const [guideVisible, setGuideVisible] = useState(true);
   const [user, setUser] = useState(users[0]);
   const [memberToken, setMemberToken] = useState('');
   const [operatorToken, setOperatorToken] = useState('');
@@ -15,7 +20,12 @@ function Lab() {
   const [applicationKey, setApplicationKey] = useState('');
   const [articleKey, setArticleKey] = useState('demo-article');
   const [body, setBody] = useState('');
-  const [result, setResult] = useState('Ready. Sign in as the local operator, create or select an application, then issue a member token.');
+  const [result, setResult] = useState<string | null>(null);
+
+  function switchLocale(next: Locale): void {
+    setLocale(next);
+    window.localStorage.setItem(localeStorageKey, next);
+  }
 
   async function request(path: string, options: RequestInit = {}): Promise<unknown> {
     const response = await fetch(`${apiBase}${path}`, options);
@@ -53,12 +63,12 @@ function Lab() {
   }
 
   async function fullReset(): Promise<void> {
-    if (!window.confirm('This deletes ALL applications, comments, and data, then recreates the schema. Continue?')) return;
+    if (!window.confirm(t('confirmReset'))) return;
     await request('/v1/local/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'RESET' }) });
     setApplications([]);
     setApplicationKey('');
     setMemberToken('');
-    setResult(JSON.stringify({ status: 200, payload: { message: 'Local environment reset. Sign in again and create an application.' } }, null, 2));
+    setResult(JSON.stringify({ status: 200, payload: { message: t('resetDone') } }, null, 2));
   }
 
   function memberHeaders(): HeadersInit { return { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}`, 'X-Application-Key': applicationKey }; }
@@ -73,7 +83,68 @@ function Lab() {
     await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders() });
   }
 
-  return <main><header><strong>Comment Developer Lab</strong><span>Local Kong client</span></header><section className="workspace"><div className="panel"><h1>Identity & application</h1><div className="actions"><button type="button" onClick={() => void signInOperator()}>Sign in operator</button><button type="button" disabled={!operatorToken} onClick={() => void loadApplications()}>Refresh apps</button><button type="button" className="danger" onClick={() => void fullReset()}>Full reset</button></div><form onSubmit={(event) => void createApplication(event)} className="inline-form"><input name="name" required maxLength={100} placeholder="Application name" /><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" minLength={3} maxLength={32} placeholder="application-slug" /><button disabled={!operatorToken}>Create app</button></form><label>Application<select value={applicationKey} onChange={(event) => setApplicationKey(event.target.value)}><option value="">Select an application</option>{applications.map((application) => <option key={application.key} value={application.key}>{application.name} ({application.slug})</option>)}</select></label><label>Simulated user<select value={user} onChange={(event) => setUser(event.target.value)}>{users.map((entry) => <option key={entry}>{entry}</option>)}</select></label><button type="button" onClick={() => void issueToken()}>Issue member token</button></div><div className="panel"><h1>Comments</h1><label>Article key<input value={articleKey} onChange={(event) => setArticleKey(event.target.value)} required /></label><form onSubmit={(event) => void createComment(event)}><label>Comment<textarea value={body} onChange={(event) => setBody(event.target.value)} required maxLength={1000} /></label><div className="actions"><button disabled={!memberToken || !applicationKey}>Post comment</button><button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>List comments</button></div></form></div><div className="response"><h2>Response</h2><pre>{result}</pre></div></section></main>;
+  return <main>
+    <header>
+      <strong>Comment Developer Lab</strong>
+      <span>{t('tagline')}</span>
+      <div className="locale-switch" role="group" aria-label="Language">
+        {locales.map((entry) => <button key={entry} type="button" className={entry === locale ? 'active' : ''} onClick={() => switchLocale(entry)}>{localeLabels[entry]}</button>)}
+      </div>
+    </header>
+    <section className="guide panel">
+      <div className="guide-head">
+        <h1>{t('guideTitle')}</h1>
+        <button type="button" onClick={() => setGuideVisible((visible) => !visible)}>{guideVisible ? t('guideHide') : t('guideShow')}</button>
+      </div>
+      {guideVisible && <ol className="guide-steps">{guide[locale].map((step, index) => <li key={index}><strong>{step.title}</strong><span>{step.body}</span></li>)}</ol>}
+    </section>
+    <section className="workspace">
+      <div className="panel">
+        <h1>{t('identityPanelTitle')}</h1>
+        <div className="actions">
+          <button type="button" onClick={() => void signInOperator()}>{t('signInOperator')}</button>
+          <button type="button" disabled={!operatorToken} onClick={() => void loadApplications()}>{t('refreshApps')}</button>
+          <button type="button" className="danger" onClick={() => void fullReset()}>{t('fullReset')}</button>
+        </div>
+        <form onSubmit={(event) => void createApplication(event)} className="inline-form">
+          <input name="name" required maxLength={100} placeholder={t('applicationName')} />
+          <input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" minLength={3} maxLength={32} placeholder={t('applicationSlug')} />
+          <button disabled={!operatorToken}>{t('createApp')}</button>
+        </form>
+        <label>{t('application')}
+          <select value={applicationKey} onChange={(event) => setApplicationKey(event.target.value)}>
+            <option value="">{t('selectApplication')}</option>
+            {applications.map((application) => <option key={application.key} value={application.key}>{application.name} ({application.slug})</option>)}
+          </select>
+        </label>
+        <label>{t('simulatedUser')}
+          <select value={user} onChange={(event) => setUser(event.target.value)}>{users.map((entry) => <option key={entry}>{entry}</option>)}</select>
+        </label>
+        <button type="button" onClick={() => void issueToken()}>{t('issueToken')}</button>
+      </div>
+      <div className="panel">
+        <h1>{t('comments')}</h1>
+        <label>{t('articleKey')}<input value={articleKey} onChange={(event) => setArticleKey(event.target.value)} required /></label>
+        <form onSubmit={(event) => void createComment(event)}>
+          <label>{t('commentBody')}<textarea value={body} onChange={(event) => setBody(event.target.value)} required maxLength={1000} /></label>
+          <div className="actions">
+            <button disabled={!memberToken || !applicationKey}>{t('postComment')}</button>
+            <button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>{t('listComments')}</button>
+          </div>
+        </form>
+      </div>
+      <div className="response">
+        <h2>{t('response')}</h2>
+        <pre>{result ?? t('ready')}</pre>
+      </div>
+    </section>
+  </main>;
 }
 
-createRoot(document.getElementById('root')!).render(<Lab />);
+export type { TranslationKey };
+export default Lab;
+
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  createRoot(rootElement).render(<Lab />);
+}

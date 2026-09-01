@@ -4,6 +4,7 @@
   "scripts": {
     "build": "vite build",
     "check": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
     "dev": "vite --host 0.0.0.0"
   },
   "dependencies": {
@@ -14,6 +15,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2"
+    "@types/react-dom": "^19.0.2",
+    "jsdom": "^25.0.1",
+    "vitest": "^3.0.0"
   }
 }
