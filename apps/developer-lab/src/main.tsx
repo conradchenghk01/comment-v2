@@ -158,6 +158,57 @@ function Lab() {
     return fetch(`${apiBase}${path}`, options).then((response) => response.status);
   }
 
+  async function getTokenFor(username: string): Promise<string> {
+    const resp = await fetch(`${apiBase}/v1/local/auth/member/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: username }) });
+    const data = await resp.json() as { accessToken: string };
+    return data.accessToken;
+  }
+
+  async function seedData(): Promise<void> {
+    if (!applicationKey) { setModal({ type: 'error', title: t('seedFailed'), detail: 'No application selected' }); return; }
+    try {
+      const article = articleKey || 'demo-article';
+      const rootSpecs = [
+        { user: 'author', body: '大家好！這是一則種子留言，用來測試陰影封鎖。' },
+        { user: 'reactor', body: '我也來留一則，看看不同用戶的視角。' },
+        { user: 'reporter-one', body: '這則留言可能會被其他人檢舉。' }
+      ];
+      const createdRoots: { id: string }[] = [];
+      for (const item of rootSpecs) {
+        const token = await getTokenFor(item.user);
+        const resp = await fetch(`${apiBase}/v1/articles/${encodeURIComponent(article)}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Application-Key': applicationKey }, body: JSON.stringify({ body: item.body }) });
+        if (!resp.ok) {
+          const errBody = await resp.text().catch(() => '');
+          throw new Error(`Seed root failed (${resp.status}) for ${item.user}: ${errBody}`);
+        }
+        const created = await resp.json() as { id: string };
+        createdRoots.push(created);
+      }
+      const replySpecs = [
+        { user: 'reporter-two', rootIndex: 0, body: '回覆 author：說得好！' },
+        { user: 'reporter-three', rootIndex: 1, body: '回覆 reactor：歡迎加入討論！' },
+        { user: 'reporter-four', rootIndex: 2, body: '回覆 reporter-one：這則留言有問題。' }
+      ];
+      for (const item of replySpecs) {
+        const token = await getTokenFor(item.user);
+        const root = createdRoots[item.rootIndex];
+        const resp = await fetch(`${apiBase}/v1/comments/${encodeURIComponent(root.id)}/replies`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Application-Key': applicationKey }, body: JSON.stringify({ body: item.body }) });
+        if (!resp.ok) {
+          const errBody = await resp.text().catch(() => '');
+          throw new Error(`Seed reply failed (${resp.status}) for ${item.user}: ${errBody}`);
+        }
+      }
+      const seedToken = await getTokenFor(user);
+      setMemberToken(seedToken);
+      setTokenUser(user);
+      await listComments(seedToken);
+      setModal({ type: 'success', title: t('seedDone') });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setModal({ type: 'error', title: t('seedFailed'), detail });
+    }
+  }
+
   function renderComment(comment: LabComment) {
     const canReact = Boolean(memberToken && applicationKey);
     return <article key={comment.id} className={comment.rootCommentId ? 'comment reply' : 'comment'}>
@@ -230,6 +281,7 @@ function Lab() {
           <div className="actions">
             <button disabled={!memberToken || !applicationKey}>{replyTarget ? t('postReply') : t('postComment')}</button>
             <button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>{t('listComments')}</button>
+            <button type="button" disabled={!applicationKey} onClick={() => void seedData()}>{t('seedData')}</button>
           </div>
         </form>
         {reportTarget && <div className="report-dialog">

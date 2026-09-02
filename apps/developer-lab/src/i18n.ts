@@ -53,7 +53,10 @@ const zh = {
   postFailedReply: '回覆發佈失敗',
   modalClose: '關閉',
   modalErrorReason: '原因',
-  commentSidebar: '留言列表'
+  commentSidebar: '留言列表',
+  seedData: '生成種子資料',
+  seedDone: '已生成種子留言與回覆，來自不同用戶。',
+  seedFailed: '種子資料生成失敗'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -106,7 +109,10 @@ const en: Record<TranslationKey, string> = {
   postFailedReply: 'Failed to post reply',
   modalClose: 'Close',
   modalErrorReason: 'Reason',
-  commentSidebar: 'Comments'
+  commentSidebar: 'Comments',
+  seedData: 'Generate seed data',
+  seedDone: 'Seed comments and replies generated from different users.',
+  seedFailed: 'Failed to generate seed data'
 };
 
 export const translations: Record<Locale, Record<TranslationKey, string>> = { zh, en };
