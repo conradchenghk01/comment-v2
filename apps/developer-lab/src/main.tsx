@@ -1,5 +1,4 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import { createRoot } from 'react-dom/client';
 import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import './styles.css';
