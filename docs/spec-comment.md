@@ -11,7 +11,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 一個後端、以應用為隔離單位服務多個產品（一個產品一個應用，key resources 分開）：
 
 - **應用層**：每個產品一個應用（application），擁有獨立的評論、emoji、靜音、檢舉、封鎖、敏感字、系統設定與審計紀錄；所有 API 必帶應用 key（ADR-0009）。評論 ID 生成時即全球唯一（ULID，經 API 暴露），前端以此單一 ID 構造評論的 canonical URL；應用 slug 是可選的 URL 可讀性前綴。用戶與操作員跨應用共用，但其在各應用內的狀態互相獨立。
-- **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、寫評論、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶。未登入完全看不到評論區。
+- **前端（網頁／App）**：登入用戶可閱讀評論區（主評論＋分支兩層結構）、寫評論、按 emoji（笑／哭／加油）與一鍵三連、靜音其他用戶、檢舉單則評論（檢舉後該則對檢舉者永遠隱藏）。未登入完全看不到評論區。
 - **控制台（響應式網頁）**：操作員經內部授權系統登入（單一權限），先選應用再操作，可搜尋該應用所有評論（關鍵字／時間／文章 key／狀態）、從用戶出發搜尋並查看評論數據、刪除評論、施加一般／完全封鎖、人審待審評論（批准／拒絕）、管理自訂敏感字、設定該應用的評論間隔與每日上限。待審審核以手機體驗為第一優先。
 - **機審**：評論送出時經網易雲盾（Yidun）SaaS 判定，命中即進待審（先審後發，僅作者可見）。
 
@@ -65,7 +65,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 22. As a logged-in user, I want to mute another user (all their comments, past and future, hidden from me; reversible; the muted user never knows), so that I can filter out content I do not want to see.
 23. As a logged-in user, I want to unmute a user, so that I can restore their comments.
-23a. As a logged-in user, I want to report a comment (it becomes permanently hidden from me; unlimited reports), so that I can hide a single comment I find problematic without muting the entire user.
+23a. As a logged-in user, I want to report a comment (it becomes permanently hidden from me, and reporting a main comment also hides its replies from me; unlimited reports), so that I can hide a single comment I find problematic without muting the entire user.
 23b. As an operator, I want to see report records (who was reported how many times, who reported them, which comment was reported), so that I can spot problematic users or content via crowd signals.
 23c. As an operator, I want to see auto-ban status and reasons (which tier triggered, report count, cumulative offense count), so that I can review and manually unban if a false positive occurred.
 23d. As an operator, I want to configure auto-ban tier thresholds (report count per tier) and durations, so that I can tune the system against spam patterns.
@@ -121,7 +121,7 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 - **靜音**：用戶級、可解除、被靜音者零感知；顯示會員暱稱＋頭像（沿用會員系統資料）。
 - **檢舉**：用戶對單則評論檢舉，檢舉後該則對檢舉者永遠隱藏、數量不限；控制台可見檢舉紀錄（被檢舉者、檢舉者、被檢舉評論）。
 - **自動封禁**：用戶被檢舉達 tier 門檻即自動封禁，採累計犯規升級模型（第 1 次 tier 1 封 1 天、第 2 次 tier 2 封 1 週、第 3 次 tier 3 封 1 個月、第 4 次永久封禁）；tier 1-3 為一般封鎖，永久封禁為完全封鎖；門檻由控制台設定（預設 5/10/20，24 小時滾動窗口計算）；操作員可見狀態與原因、可手動解封；審計紀錄記「系統自動封禁」。
-- **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的評論（ADR-0002）；無檢舉機制（找客服）。
+- **權限**：未登入完全不可見（ADR-0003）；用戶不可刪不可編自己的評論（ADR-0002）；檢舉見上方「檢舉」與「自動封禁」決策（ADR-0008）。
 - **機審**：網易雲盾 SaaS 判定，命中即待審；先審後發；自訂詞同步到雲盾自訂詞庫（ADR-0001，整合細節待補）。
 - **人審**：操作員批准／拒絕；被拒評論對作者顯示「未通過審核」；無超時自動批准／拒絕。
 - **刪除**：僅操作員可刪；刪主評論留「此評論已被 01 管理員刪除」佔位、子評論保留；分支子評論被刪單則移除；無復原按鈕（審計留痕）。支援批次刪除：按文章 key（刪該文章所有評論）、按用戶（刪該用戶所有評論）。
@@ -153,7 +153,6 @@ HK01 的文章頁需要一個評論系統，讓登入讀者圍繞文章討論。
 
 - 置頂評論、官方／認證標籤、單篇文章關閉評論
 - 通知（子評論通知、審核結果通知）
-- 檢舉機制（用戶可檢舉單則評論，控制台可見檢舉紀錄）
 - 用戶自刪／自編輯評論
 - 熱門排序
 - 嵌入式 widget／SDK
