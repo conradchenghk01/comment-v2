@@ -45,6 +45,7 @@ function Lab() {
   const [replyTarget, setReplyTarget] = useState<LabComment | null>(null);
   const [reportTarget, setReportTarget] = useState<LabComment | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>('spam');
+  const [modal, setModal] = useState<{ type: 'success' | 'error'; title: string; detail?: string } | null>(null);
 
   function switchLocale(next: Locale): void {
     setLocale(next);
@@ -106,10 +107,16 @@ function Lab() {
     event.preventDefault();
     const target = replyTarget;
     const path = target ? `/v1/comments/${encodeURIComponent(target.id)}/replies` : `/v1/articles/${encodeURIComponent(articleKey)}/comments`;
-    await request(path, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) });
-    setBody('');
-    setReplyTarget(null);
-    await listComments();
+    try {
+      await request(path, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) });
+      setBody('');
+      setReplyTarget(null);
+      await listComments();
+      setModal({ type: 'success', title: target ? t('postSuccessReply') : t('postSuccess') });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setModal({ type: 'error', title: target ? t('postFailedReply') : t('postFailed'), detail });
+    }
   }
 
   async function listComments(overrideToken?: string): Promise<void> {
@@ -240,6 +247,13 @@ function Lab() {
         <pre>{result ?? t('ready')}</pre>
       </div>
     </section>
+    {modal && <div className="modal-overlay" onClick={() => setModal(null)}>
+      <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <h2 className={modal.type}>{modal.title}</h2>
+        {modal.detail && <p className="modal-detail"><strong>{t('modalErrorReason')}:</strong> {modal.detail}</p>}
+        <button type="button" onClick={() => setModal(null)}>{t('modalClose')}</button>
+      </div>
+    </div>}
   </main>;
 }
 

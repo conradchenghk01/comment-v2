@@ -31,3 +31,10 @@
 .user-radios legend { font-size: 12px; font-weight: 700; padding: 0 6px; }
 .user-radio { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 400; cursor: pointer; }
 .user-radio input { width: auto; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 1000; }
+.modal { background: #f8fbf5; border: 1px solid #9db7aa; border-radius: 6px; padding: 24px; max-width: 420px; width: 90%; display: grid; gap: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+.modal h2 { margin: 0; font-size: 16px; }
+.modal h2.success { color: #245c51; }
+.modal h2.error { color: #a63d40; }
+.modal-detail { margin: 0; font-size: 13px; line-height: 1.5; color: #486459; word-break: break-word; }
+.modal button { width: auto; justify-self: end; }

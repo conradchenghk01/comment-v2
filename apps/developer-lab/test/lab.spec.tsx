@@ -261,3 +261,52 @@ describe('Lab comment board interactions', () => {
     expect(container.textContent).not.toContain('檢舉原因');
   });
 });
+
+describe('Lab post comment modal', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="lab"></div>';
+    container = document.getElementById('lab')!;
+    fetchCalls.length = 0;
+    commentsFixture = { items: [] };
+    branchFixture = { items: [] };
+    reactionFixture = { counts: { laugh: 0, cry: 0, cheer: 0 }, active: [], tripleUsed: false };
+  });
+
+  function findButton(label: string): HTMLButtonElement {
+    return ([...container.querySelectorAll('button')] as HTMLButtonElement[]).find((button) => button.textContent?.startsWith(label))!;
+  }
+
+  async function signInAndLoadBoard(): Promise<void> {
+    renderLab(container);
+    await act(async () => { click(findButton('登入操作員')); });
+    await act(async () => { click(findButton('發給我 token')); });
+  }
+
+  it('shows a success modal after posting a comment', async () => {
+    await signInAndLoadBoard();
+    const textarea = container.querySelector('textarea')!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(textarea, '測試留言');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { click(findButton('發佈留言')); });
+    expect(container.textContent).toContain('留言發佈成功！');
+  });
+
+  it('closes the modal when the close button is clicked', async () => {
+    await signInAndLoadBoard();
+    const textarea = container.querySelector('textarea')!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(textarea, '測試留言');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { click(findButton('發佈留言')); });
+    expect(container.textContent).toContain('留言發佈成功！');
+    await act(async () => { click(findButton('關閉')); });
+    expect(container.textContent).not.toContain('留言發佈成功！');
+  });
+});

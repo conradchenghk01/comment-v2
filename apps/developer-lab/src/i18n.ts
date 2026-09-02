@@ -46,7 +46,13 @@ const zh = {
   resetDone: '本地環境已重置。請重新登入操作員並建立應用。',
   viewingAs: '目前視角：{user}',
   switchedUser: '已切換用戶，請重新按「發給我 token」',
-  noTokenWarning: '尚未發出 token — 請先按「發給我 token」'
+  noTokenWarning: '尚未發出 token — 請先按「發給我 token」',
+  postSuccess: '留言發佈成功！',
+  postSuccessReply: '回覆發佈成功！',
+  postFailed: '留言發佈失敗',
+  postFailedReply: '回覆發佈失敗',
+  modalClose: '關閉',
+  modalErrorReason: '原因'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -92,7 +98,13 @@ const en: Record<TranslationKey, string> = {
   resetDone: 'Local environment reset. Sign in again and create an application.',
   viewingAs: 'Viewing as: {user}',
   switchedUser: 'User switched — press "Issue member token" again',
-  noTokenWarning: 'No token issued — press "Issue member token" first'
+  noTokenWarning: 'No token issued — press "Issue member token" first',
+  postSuccess: 'Comment posted successfully!',
+  postSuccessReply: 'Reply posted successfully!',
+  postFailed: 'Failed to post comment',
+  postFailedReply: 'Failed to post reply',
+  modalClose: 'Close',
+  modalErrorReason: 'Reason'
 };
 
 export const translations: Record<Locale, Record<TranslationKey, string>> = { zh, en };
