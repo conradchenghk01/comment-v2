@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import { createRoot } from 'react-dom/client';
 import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import './styles.css';
@@ -33,6 +34,7 @@ function Lab() {
   const [guideVisible, setGuideVisible] = useState(true);
   const [user, setUser] = useState(users[0]);
   const [memberToken, setMemberToken] = useState('');
+  const [tokenUser, setTokenUser] = useState('');
   const [operatorToken, setOperatorToken] = useState('');
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationKey, setApplicationKey] = useState('');
@@ -82,6 +84,7 @@ function Lab() {
   async function issueToken(): Promise<void> {
     const payload = await request('/v1/local/auth/member/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user }) }) as { accessToken: string };
     setMemberToken(payload.accessToken);
+    setTokenUser(user);
   }
 
   async function fullReset(): Promise<void> {
@@ -90,13 +93,14 @@ function Lab() {
     setApplications([]);
     setApplicationKey('');
     setMemberToken('');
+    setTokenUser('');
     setComments([]);
     setReplyTarget(null);
     setReportTarget(null);
     setResult(JSON.stringify({ status: 200, payload: { message: t('resetDone') } }, null, 2));
   }
 
-  function memberHeaders(): HeadersInit { return { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}`, 'X-Application-Key': applicationKey }; }
+  function memberHeaders(overrideToken?: string): HeadersInit { return { 'Content-Type': 'application/json', Authorization: `Bearer ${overrideToken ?? memberToken}`, 'X-Application-Key': applicationKey }; }
 
   async function createComment(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -108,8 +112,8 @@ function Lab() {
     await listComments();
   }
 
-  async function listComments(): Promise<void> {
-    const page = await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders() }) as { items: LabComment[] };
+  async function listComments(overrideToken?: string): Promise<void> {
+    const page = await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders(overrideToken) }) as { items: LabComment[] };
     const roots = page.items.map((comment) => ({ ...comment, replies: [] as LabComment[] }));
     await Promise.all(roots.filter((root) => root.replyCount > 0).map(async (root) => {
       const branch = await request(`/v1/comments/${encodeURIComponent(root.id)}/branch`, { headers: memberHeaders() }) as { items: LabComment[] };
@@ -196,9 +200,10 @@ function Lab() {
             {applications.map((application) => <option key={application.key} value={application.key}>{application.name} ({application.slug})</option>)}
           </select>
         </label>
-        <label>{t('simulatedUser')}
-          <select value={user} onChange={(event) => setUser(event.target.value)}>{users.map((entry) => <option key={entry}>{entry}</option>)}</select>
-        </label>
+        <fieldset className="user-radios">
+          <legend>{t('simulatedUser')}</legend>
+          {users.map((entry) => <label key={entry} className="user-radio"><input type="radio" name="user" value={entry} checked={user === entry} onChange={() => setUser(entry)} />{entry}</label>)}
+        </fieldset>
         <button type="button" onClick={() => void issueToken()}>{t('issueToken')}</button>
       </div>
       <div className="panel">
@@ -223,7 +228,10 @@ function Lab() {
           </div>
         </div>}
         <div className="comment-board">
-          <h2>{t('commentBoard')}</h2>
+          <div className="board-head">
+            <h2>{t('commentBoard')}</h2>
+            <span className={`viewer-badge${tokenUser ? (user === tokenUser ? '' : ' warning') : ' warning'}`}>{tokenUser ? (user === tokenUser ? t('viewingAs').replace('{user}', tokenUser) : t('viewingAs').replace('{user}', tokenUser) + ' ⚠ ' + t('switchedUser')) : t('noTokenWarning')}</span>
+          </div>
           {comments.length === 0 ? <p className="no-comments">{t('noComments')}</p> : <div className="comment-thread">{comments.map((comment) => renderComment(comment))}</div>}
         </div>
       </div>

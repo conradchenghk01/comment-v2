@@ -27,7 +27,8 @@ vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit
   else if (path.includes('/comments')) payload = commentsFixture;
   else if (path === '/v1/local/reset') payload = { message: 'ok' };
   const text = () => Promise.resolve(JSON.stringify(payload));
-  return { ok: true, status: 200, text } as Response;
+  const json = () => Promise.resolve(payload);
+  return { ok: true, status: 200, text, json } as Response;
 }));
 
 const { default: Lab } = await import('../src/main.js');
@@ -92,6 +93,8 @@ describe('Lab language switching', () => {
     expect(container.textContent).toContain('身份與應用');
     expect(container.textContent).toContain('發給我 token');
     expect(container.textContent).not.toContain('User guide');
+    expect(container.querySelector('.user-radios')).toBeTruthy();
+    expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(8);
   });
 
   it('switches to English, persists it, and switches back', () => {
@@ -127,6 +130,22 @@ describe('Lab language switching', () => {
     const showButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '顯示指南')!;
     click(showButton);
     expect(container.textContent).toContain('獨立的留言空間');
+  });
+
+  it('renders radio buttons for all simulated users', () => {
+    renderLab(container);
+    const radios = container.querySelectorAll('input[type="radio"]');
+    expect(radios).toHaveLength(8);
+    const labels = [...radios].map((r) => r.getAttribute('value'));
+    expect(labels).toContain('author');
+    expect(labels).toContain('new-user');
+  });
+
+  it('shows a viewer badge warning when no token is issued', () => {
+    renderLab(container);
+    const badge = container.querySelector('.viewer-badge');
+    expect(badge).toBeTruthy();
+    expect(badge!.textContent).toContain('尚未發出 token');
   });
 });
 

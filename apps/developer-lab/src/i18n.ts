@@ -43,7 +43,10 @@ const zh = {
   response: 'API 回應',
   ready: '就緒。先以本地操作員登入，建立或選擇應用，再取得用戶 token。',
   confirmReset: '這會刪除所有應用、留言與資料，並重建資料庫 schema。確定繼續？',
-  resetDone: '本地環境已重置。請重新登入操作員並建立應用。'
+  resetDone: '本地環境已重置。請重新登入操作員並建立應用。',
+  viewingAs: '目前視角：{user}',
+  switchedUser: '已切換用戶，請重新按「發給我 token」',
+  noTokenWarning: '尚未發出 token — 請先按「發給我 token」'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -86,7 +89,10 @@ const en: Record<TranslationKey, string> = {
   response: 'API response',
   ready: 'Ready. Sign in as the local operator, create or select an application, then issue a member token.',
   confirmReset: 'This deletes ALL applications, comments, and data, then recreates the database schema. Continue?',
-  resetDone: 'Local environment reset. Sign in again and create an application.'
+  resetDone: 'Local environment reset. Sign in again and create an application.',
+  viewingAs: 'Viewing as: {user}',
+  switchedUser: 'User switched — press "Issue member token" again',
+  noTokenWarning: 'No token issued — press "Issue member token" first'
 };
 
 export const translations: Record<Locale, Record<TranslationKey, string>> = { zh, en };
