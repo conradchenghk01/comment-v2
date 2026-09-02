@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
 import { createRoot } from 'react-dom/client';
 import { createT, guide, localeLabels, Locale, locales, resolveLocale, TranslationKey } from './i18n';
@@ -46,6 +46,22 @@ function Lab() {
   const [reportTarget, setReportTarget] = useState<LabComment | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>('spam');
   const [modal, setModal] = useState<{ type: 'success' | 'error'; title: string; detail?: string } | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const reportSelectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (replyTarget && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }
+  }, [replyTarget]);
+
+  useEffect(() => {
+    if (reportTarget && reportSelectRef.current) {
+      reportSelectRef.current.focus();
+      reportSelectRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }
+  }, [reportTarget]);
 
   function switchLocale(next: Locale): void {
     setLocale(next);
@@ -277,7 +293,7 @@ function Lab() {
         <label>{t('articleKey')}<input value={articleKey} onChange={(event) => setArticleKey(event.target.value)} required /></label>
         <form className="comment-form" onSubmit={(event) => void createComment(event)}>
           {replyTarget && <div className="reply-target"><span>{t('replyingTo')} <strong>{replyTarget.authorName}</strong></span><button type="button" onClick={() => setReplyTarget(null)}>{t('cancelReply')}</button></div>}
-          <label>{t('commentBody')}<textarea value={body} onChange={(event) => setBody(event.target.value)} required maxLength={1000} /></label>
+          <label>{t('commentBody')}<textarea ref={textareaRef} value={body} onChange={(event) => setBody(event.target.value)} required maxLength={1000} /></label>
           <div className="actions">
             <button disabled={!memberToken || !applicationKey}>{replyTarget ? t('postReply') : t('postComment')}</button>
             <button type="button" disabled={!memberToken || !applicationKey} onClick={() => void listComments()}>{t('listComments')}</button>
@@ -286,7 +302,7 @@ function Lab() {
         </form>
         {reportTarget && <div className="report-dialog">
           <strong>{t('reportReason')}</strong>
-          <select value={reportReason} onChange={(event) => setReportReason(event.target.value as ReportReason)}>
+          <select ref={reportSelectRef} value={reportReason} onChange={(event) => setReportReason(event.target.value as ReportReason)}>
             {reportReasons.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
           </select>
           <div className="actions">
