@@ -97,7 +97,7 @@ describe('Lab language switching', () => {
     setItem.mockClear();
   });
 
-  it('defaults to Traditional Chinese with the guide visible', () => {
+  it('defaults to Traditional Chinese with the guide hidden', () => {
     renderLab(container);
     expect(container.textContent).toContain('使用指南');
     expect(container.textContent).toContain('身份與應用');
@@ -105,6 +105,7 @@ describe('Lab language switching', () => {
     expect(container.textContent).not.toContain('User guide');
     expect(container.querySelector('.user-radios')).toBeTruthy();
     expect(container.querySelectorAll('input[type="radio"]')).toHaveLength(8);
+    expect(container.textContent).not.toContain('獨立的留言空間');
   });
 
   it('switches to English, persists it, and switches back', () => {
@@ -134,12 +135,12 @@ describe('Lab language switching', () => {
 
   it('collapses and reopens the guide', () => {
     renderLab(container);
-    const hideButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '隱藏指南')!;
-    click(hideButton);
-    expect(container.textContent).not.toContain('獨立的留言空間');
     const showButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '顯示指南')!;
     click(showButton);
     expect(container.textContent).toContain('獨立的留言空間');
+    const hideButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '隱藏指南')!;
+    click(hideButton);
+    expect(container.textContent).not.toContain('獨立的留言空間');
   });
 
   it('renders radio buttons for all simulated users', () => {

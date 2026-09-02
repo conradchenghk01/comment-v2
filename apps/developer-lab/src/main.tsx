@@ -31,7 +31,7 @@ type ReportReason = (typeof reportReasons)[number];
 function Lab() {
   const [locale, setLocale] = useState<Locale>(() => resolveLocale(window.localStorage.getItem(localeStorageKey)));
   const t = createT(locale);
-  const [guideVisible, setGuideVisible] = useState(true);
+  const [guideVisible, setGuideVisible] = useState(false);
   const [user, setUser] = useState(users[0]);
   const [memberToken, setMemberToken] = useState('');
   const [tokenUser, setTokenUser] = useState('');
@@ -235,7 +235,7 @@ function Lab() {
     <section className="guide panel">
       <div className="guide-head">
         <h1>{t('guideTitle')}</h1>
-        <button type="button" onClick={() => setGuideVisible((visible) => !visible)}>{guideVisible ? t('guideHide') : t('guideShow')}</button>
+        <button type="button" className="guide-toggle" onClick={() => setGuideVisible((visible) => !visible)}>{guideVisible ? t('guideHide') : t('guideShow')}</button>
       </div>
       {guideVisible && <ol className="guide-steps">{guide[locale].map((step, index) => <li key={index}><strong>{step.title}</strong><span>{step.body}</span></li>)}</ol>}
     </section>
