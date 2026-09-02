@@ -310,3 +310,51 @@ describe('Lab post comment modal', () => {
     expect(container.textContent).not.toContain('留言發佈成功！');
   });
 });
+
+describe('Lab comment board visibility (sidebar vs inline)', () => {
+  let container: HTMLElement;
+
+  const rootComment = { id: 'root-1', rootCommentId: null, authorName: 'author', body: '第一則留言', status: 'published', createdAt: '2026-09-01T10:00:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="lab"></div>';
+    container = document.getElementById('lab')!;
+    fetchCalls.length = 0;
+    commentsFixture = { items: [rootComment] };
+    branchFixture = { items: [] };
+    reactionFixture = { counts: { laugh: 0, cry: 0, cheer: 0 }, active: [], tripleUsed: false };
+  });
+
+  function findButton(label: string): HTMLButtonElement {
+    return ([...container.querySelectorAll('button')] as HTMLButtonElement[]).find((button) => button.textContent?.startsWith(label))!;
+  }
+
+  async function signInAndLoadBoard(): Promise<void> {
+    renderLab(container);
+    await act(async () => { click(findButton('登入操作員')); });
+    await act(async () => { click(findButton('發給我 token')); });
+    await act(async () => { click(findButton('查看留言')); });
+  }
+
+  it('renders the comment-sidebar element in the DOM', async () => {
+    await signInAndLoadBoard();
+    const sidebar = container.querySelector('.comment-sidebar');
+    expect(sidebar).toBeTruthy();
+    expect(sidebar!.textContent).toContain('第一則留言');
+  });
+
+  it('renders the inline comment-board element in the DOM', async () => {
+    await signInAndLoadBoard();
+    const board = container.querySelector('.comment-board');
+    expect(board).toBeTruthy();
+    expect(board!.textContent).toContain('第一則留言');
+  });
+
+  it('both sidebar and inline board show the same comments', async () => {
+    await signInAndLoadBoard();
+    const sidebarComments = container.querySelectorAll('.comment-sidebar .comment');
+    const boardComments = container.querySelectorAll('.comment-board .comment');
+    expect(sidebarComments.length).toBe(1);
+    expect(boardComments.length).toBe(1);
+  });
+});

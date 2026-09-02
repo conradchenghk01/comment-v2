@@ -52,7 +52,8 @@ const zh = {
   postFailed: '留言發佈失敗',
   postFailedReply: '回覆發佈失敗',
   modalClose: '關閉',
-  modalErrorReason: '原因'
+  modalErrorReason: '原因',
+  commentSidebar: '留言列表'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -104,7 +105,8 @@ const en: Record<TranslationKey, string> = {
   postFailed: 'Failed to post comment',
   postFailedReply: 'Failed to post reply',
   modalClose: 'Close',
-  modalErrorReason: 'Reason'
+  modalErrorReason: 'Reason',
+  commentSidebar: 'Comments'
 };
 
 export const translations: Record<Locale, Record<TranslationKey, string>> = { zh, en };

@@ -38,3 +38,13 @@
 .modal h2.error { color: #a63d40; }
 .modal-detail { margin: 0; font-size: 13px; line-height: 1.5; color: #486459; word-break: break-word; }
 .modal button { width: auto; justify-self: end; }
+.comment-sidebar { display: none; }
+.comment-board { display: block; }
+@media (min-width: 1024px) {
+  .comment-sidebar { display: block; position: fixed; left: 0; top: 0; bottom: 0; width: 340px; max-height: none; overflow-y: auto; z-index: 10; border-radius: 0; }
+  main { max-width: none; margin: 0 0 0 340px; padding: 28px; }
+  .comment-board { display: none; }
+  .workspace-main { display: grid; gap: 18px; }
+  .workspace-main .response { grid-column: auto; }
+  .workspace { grid-template-columns: 1fr; padding: 0; }
+}

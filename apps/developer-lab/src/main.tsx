@@ -188,7 +188,15 @@ function Lab() {
       </div>
       {guideVisible && <ol className="guide-steps">{guide[locale].map((step, index) => <li key={index}><strong>{step.title}</strong><span>{step.body}</span></li>)}</ol>}
     </section>
+    <aside className="comment-sidebar panel">
+      <div className="board-head">
+        <h2>{t('commentBoard')}</h2>
+        <span className={`viewer-badge${tokenUser ? (user === tokenUser ? '' : ' warning') : ' warning'}`}>{tokenUser ? (user === tokenUser ? t('viewingAs').replace('{user}', tokenUser) : t('viewingAs').replace('{user}', tokenUser) + ' ⚠ ' + t('switchedUser')) : t('noTokenWarning')}</span>
+      </div>
+      {comments.length === 0 ? <p className="no-comments">{t('noComments')}</p> : <div className="comment-thread">{comments.map((comment) => renderComment(comment))}</div>}
+    </aside>
     <section className="workspace">
+      <div className="workspace-main">
       <div className="panel">
         <h1>{t('identityPanelTitle')}</h1>
         <div className="actions">
@@ -245,6 +253,7 @@ function Lab() {
       <div className="response">
         <h2>{t('response')}</h2>
         <pre>{result ?? t('ready')}</pre>
+      </div>
       </div>
     </section>
     {modal && <div className="modal-overlay" onClick={() => setModal(null)}>
