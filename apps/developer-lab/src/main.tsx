@@ -48,6 +48,7 @@ function Lab() {
   const [modal, setModal] = useState<{ type: 'success' | 'error'; title: string; detail?: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const reportSelectRef = useRef<HTMLSelectElement>(null);
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (replyTarget && textareaRef.current) {
@@ -124,10 +125,22 @@ function Lab() {
     const target = replyTarget;
     const path = target ? `/v1/comments/${encodeURIComponent(target.id)}/replies` : `/v1/articles/${encodeURIComponent(articleKey)}/comments`;
     try {
-      await request(path, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) });
+      const created = await request(path, { method: 'POST', headers: memberHeaders(), body: JSON.stringify({ body }) }) as LabComment;
       setBody('');
       setReplyTarget(null);
-      await listComments();
+      await listComments(undefined, 'newest');
+      setComments((current) => {
+        const allIds = new Set<string>();
+        for (const root of current) {
+          allIds.add(root.id);
+          for (const reply of root.replies ?? []) { allIds.add(reply.id); }
+        }
+        if (allIds.has(created.id)) return current;
+        if (target) {
+          return updateComment(current, target.id, (root) => ({ ...root, replies: [...(root.replies ?? []), created], replyCount: root.replyCount + 1 }));
+        }
+        return [{ ...created, replies: [] }, ...current];
+      });
       setModal({ type: 'success', title: target ? t('postSuccessReply') : t('postSuccess') });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -135,8 +148,8 @@ function Lab() {
     }
   }
 
-  async function listComments(overrideToken?: string): Promise<void> {
-    const page = await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments`, { headers: memberHeaders(overrideToken) }) as { items: LabComment[] };
+  async function listComments(overrideToken?: string, sort: 'relevant' | 'newest' | 'oldest' = 'relevant'): Promise<void> {
+    const page = await request(`/v1/articles/${encodeURIComponent(articleKey)}/comments?sort=${sort}`, { headers: memberHeaders(overrideToken) }) as { items: LabComment[] };
     const roots = page.items.map((comment) => ({ ...comment, replies: [] as LabComment[] }));
     await Promise.all(roots.filter((root) => root.replyCount > 0).map(async (root) => {
       const branch = await request(`/v1/comments/${encodeURIComponent(root.id)}/branch`, { headers: memberHeaders() }) as { items: LabComment[] };
@@ -147,6 +160,15 @@ function Lab() {
 
   function updateComment(tree: LabComment[], id: string, patch: (comment: LabComment) => LabComment): LabComment[] {
     return tree.map((comment) => comment.id === id ? patch(comment) : { ...comment, replies: updateComment(comment.replies ?? [], id, patch) });
+  }
+
+  function toggleReplies(commentId: string): void {
+    setExpandedReplies((current) => {
+      const next = new Set(current);
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
+      return next;
+    });
   }
 
   async function toggleReaction(comment: LabComment, emoji: Emoji): Promise<void> {
@@ -187,7 +209,8 @@ function Lab() {
       const rootSpecs = [
         { user: 'author', body: '大家好！這是一則種子留言，用來測試陰影封鎖。' },
         { user: 'reactor', body: '我也來留一則，看看不同用戶的視角。' },
-        { user: 'reporter-one', body: '這則留言可能會被其他人檢舉。' }
+        { user: 'reporter-one', body: '這則留言可能會被其他人檢舉。' },
+        { user: 'reporter-two', body: '測試一下留言功能是否正常運作。' }
       ];
       const createdRoots: { id: string }[] = [];
       for (const item of rootSpecs) {
@@ -201,9 +224,9 @@ function Lab() {
         createdRoots.push(created);
       }
       const replySpecs = [
-        { user: 'reporter-two', rootIndex: 0, body: '回覆 author：說得好！' },
-        { user: 'reporter-three', rootIndex: 1, body: '回覆 reactor：歡迎加入討論！' },
-        { user: 'reporter-four', rootIndex: 2, body: '回覆 reporter-one：這則留言有問題。' }
+        { user: 'reporter-three', rootIndex: 0, body: '回覆 author：說得好！' },
+        { user: 'reporter-four', rootIndex: 0, body: '回覆 author：我也同意！' },
+        { user: 'reporter-five', rootIndex: 1, body: '回覆 reactor：歡迎加入討論！' }
       ];
       for (const item of replySpecs) {
         const token = await getTokenFor(item.user);
@@ -236,7 +259,7 @@ function Lab() {
         {!comment.rootCommentId && <button type="button" className="link" disabled={!canReact} onClick={() => setReplyTarget(comment)}>{t('reply')}</button>}
         <button type="button" className="link danger-link" disabled={!canReact} onClick={() => setReportTarget(comment)}>{t('report')}</button>
       </div>
-      {(comment.replies?.length ?? 0) > 0 && <div className="replies">{comment.replies!.map((child) => renderComment(child))}</div>}
+      {(comment.replies?.length ?? 0) > 0 && (expandedReplies.has(comment.id) ? (<><button type="button" className="reply-toggle" onClick={() => toggleReplies(comment.id)}>{t('collapseReplies')}</button><div className="replies">{comment.replies!.map((child) => renderComment(child))}</div></>) : (<button type="button" className="reply-toggle" onClick={() => toggleReplies(comment.id)}>{t('viewReplies').replace('{count}', String(comment.replies!.length))}</button>))}
     </article>;
   }
 

@@ -22,6 +22,8 @@
 .comment-actions button.triple { background: #6b4f9e; border-color: #6b4f9e; }
 .comment-actions button.triple:disabled { background: #9aa9a0; border-color: #9aa9a0; }
 .replies { display: grid; gap: 10px; border-left: 2px solid #c5d6cc; padding-left: 12px; margin-top: 4px; }
+.reply-toggle { background: transparent; color: #245c51; border: 1px solid #c5d6cc; border-radius: 3px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; width: auto; justify-self: start; }
+.reply-toggle:hover { background: #eef5ef; }
 .reply-target { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed #7b9889; background: #eef5ef; padding: 8px 10px; font-size: 12px; margin-bottom: 10px; }
 .reply-target button { padding: 4px 10px; font-size: 12px; }
 .comment-actions button.danger-link { background: transparent; color: #a63d40; border-color: transparent; text-decoration: underline; padding: 4px 6px; }

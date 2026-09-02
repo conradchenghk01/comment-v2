@@ -19,23 +19,24 @@ let seedCommentCounter = 0;
 
 vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const path = String(input).replace(/^https?:\/\/[^/]+/, '');
+  const pathNoQuery = path.split('?')[0];
   fetchCalls.push({ path, method: init?.method ?? 'GET', body: typeof init?.body === 'string' ? init.body : undefined });
   let payload: unknown = {};
-  if (path === '/v1/local/auth/operator/login' || path === '/v1/local/auth/member/token') payload = { accessToken: 'token-123' };
-  else if (path === '/v1/console/applications') payload = [{ key: 'app-1', name: 'Demo App', slug: 'demo-app', status: 'active' }];
-  else if (path.includes('/triple-reaction') || path.includes('/reactions/')) payload = reactionFixture;
-  else if (path.includes('/branch')) payload = branchFixture;
-  else if (path.includes('/replies') && init?.method === 'POST') {
+  if (pathNoQuery === '/v1/local/auth/operator/login' || pathNoQuery === '/v1/local/auth/member/token') payload = { accessToken: 'token-123' };
+  else if (pathNoQuery === '/v1/console/applications') payload = [{ key: 'app-1', name: 'Demo App', slug: 'demo-app', status: 'active' }];
+  else if (pathNoQuery.includes('/triple-reaction') || pathNoQuery.includes('/reactions/')) payload = reactionFixture;
+  else if (pathNoQuery.includes('/branch')) payload = branchFixture;
+  else if (pathNoQuery.includes('/replies') && init?.method === 'POST') {
     seedCommentCounter++;
     payload = { id: `seed-reply-${seedCommentCounter}`, rootCommentId: 'root-1', authorName: 'reactor', body: 'seed reply', status: 'published', createdAt: '2026-09-01T10:05:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
   }
-  else if (path.includes('/replies')) payload = { id: 'reply-new', rootCommentId: 'root-1', authorName: 'author', body: '回覆內容', status: 'published', createdAt: '2026-09-01T10:05:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
-  else if (path.includes('/comments') && init?.method === 'POST') {
+  else if (pathNoQuery.includes('/replies')) payload = { id: 'reply-new', rootCommentId: 'root-1', authorName: 'author', body: '回覆內容', status: 'published', createdAt: '2026-09-01T10:05:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
+  else if (pathNoQuery.includes('/comments') && init?.method === 'POST') {
     seedCommentCounter++;
     payload = { id: `seed-root-${seedCommentCounter}`, rootCommentId: null, authorName: 'author', body: 'seed root', status: 'published', createdAt: '2026-09-01T10:00:00Z', replyCount: 0, reactionCounts: { laugh: 0, cry: 0, cheer: 0 }, viewerReactions: [], viewerTripleUsed: false };
   }
-  else if (path.includes('/comments')) payload = commentsFixture;
-  else if (path === '/v1/local/reset') payload = { message: 'ok' };
+  else if (pathNoQuery.includes('/comments')) payload = commentsFixture;
+  else if (pathNoQuery === '/v1/local/reset') payload = { message: 'ok' };
   const text = () => Promise.resolve(JSON.stringify(payload));
   const json = () => Promise.resolve(payload);
   return { ok: true, status: 200, text, json } as Response;
@@ -196,6 +197,10 @@ describe('Lab comment board interactions', () => {
 
   it('loads replies as a nested thread', async () => {
     await signInAndLoadBoard();
+    expect(container.textContent).toContain('查看 1 則回覆');
+    expect(container.querySelector('.reply')).toBeFalsy();
+    const toggleBtn = findButton('查看 1 則回覆');
+    await act(async () => { click(toggleBtn); });
     expect(container.textContent).toContain('第一則回覆');
     expect(container.querySelector('.reply')).toBeTruthy();
     const branchCall = fetchCalls.find((call) => call.path.includes('/branch'));
@@ -406,9 +411,9 @@ describe('Lab seed data generation', () => {
     fetchCalls.length = 0;
     await act(async () => { click(findButton('生成種子資料')); });
     const memberTokenCalls = fetchCalls.filter((call) => call.path === '/v1/local/auth/member/token');
-    expect(memberTokenCalls.length).toBe(7);
+    expect(memberTokenCalls.length).toBe(8);
     const rootPostCalls = fetchCalls.filter((call) => call.path.includes('/comments') && !call.path.includes('/replies') && call.method === 'POST' && call.path.includes('/articles/'));
-    expect(rootPostCalls.length).toBe(3);
+    expect(rootPostCalls.length).toBe(4);
     const replyPostCalls = fetchCalls.filter((call) => call.path.includes('/replies') && call.method === 'POST');
     expect(replyPostCalls.length).toBe(3);
   });

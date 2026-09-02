@@ -56,7 +56,9 @@ const zh = {
   commentSidebar: '留言列表',
   seedData: '生成種子資料',
   seedDone: '已生成種子留言與回覆，來自不同用戶。',
-  seedFailed: '種子資料生成失敗'
+  seedFailed: '種子資料生成失敗',
+  viewReplies: '查看 {count} 則回覆',
+  collapseReplies: '收起回覆'
 } as const;
 
 export type TranslationKey = keyof typeof zh;
@@ -112,7 +114,9 @@ const en: Record<TranslationKey, string> = {
   commentSidebar: 'Comments',
   seedData: 'Generate seed data',
   seedDone: 'Seed comments and replies generated from different users.',
-  seedFailed: 'Failed to generate seed data'
+  seedFailed: 'Failed to generate seed data',
+  viewReplies: 'View {count} replies',
+  collapseReplies: 'Collapse replies'
 };
 
 export const translations: Record<Locale, Record<TranslationKey, string>> = { zh, en };
